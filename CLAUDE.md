@@ -1,10 +1,12 @@
 **Файли**
 - `assets/RND-254_ticket.pdf` — тестове завдання.
 - `assets/flight-01_2026-09-11.bin/.tlog` — тестовий комплект логів (DataFlash + MAVLink tlog) одного профілю керування. Замовник обіцяв ще файли з іншими профілями — іменувати `flight-NN_<дата>.bin`/`.tlog`.
+- `worktrees/` — місце для git-worktree (у `.gitignore`). По одному на сервіс, гілка `feat/<service>`.
+- `docs/implementation-plan.md` — покроковий план реалізації (сервіси, образи, compose, Ansible).
 
 **Стек**
 - Парсер/аналізатор — Python + `pymavlink` (`DFReader` для `.bin`), `uv` (`pyproject.toml`+`uv.lock`).
-- WEB (звіт) — TypeScript/Astro, окремий Docker-контейнер.
+- WEB (звіт) — TypeScript/Astro (SSR, `@astrojs/node`) + Tailwind, окремий Docker-контейнер. SSR обов'язковий: список польотів сканується з теки результатів на кожен запит, статичний білд заморозив би його порожнім.
 - Парсер і веб на VPS — окремі контейнери, спільна bind-mounted тека результатів (JSON на політ) замість API/БД: парсер пише атомарно (`*.json.tmp` → rename), веб сканує теку на запит.
 - Watcher у контейнері парсера спавнить окремий subprocess-воркер на кожен новий файл (`DFReader` CPU-bound і крихкий) — падіння одного парсингу не чіпає прийом інших файлів.
 
