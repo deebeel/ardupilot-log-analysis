@@ -1,0 +1,43 @@
+---
+import Base from '../layouts/Base.astro';
+import { listFlights } from '../lib/results.ts';
+
+// Страховка на випадок зміни `output` у конфізі.
+export const prerender = false;
+
+// readdir — САМЕ ТУТ, у тілі сторінки: на верхньому рівні модуля він виконався б
+// один раз при старті процесу і заморозив би список польотів.
+const flights = await listFlights();
+---
+
+<Base title="Польоти — якість пілотування">
+  <h1 class="mb-6 text-2xl font-semibold">Польоти</h1>
+
+  {
+    flights.length === 0 ? (
+      <p data-testid="empty-state" class="rounded-lg border border-slate-800 bg-slate-900/50 p-6 text-slate-400">
+        Поки немає жодного розібраного польоту. Покладіть лог у watched-теку парсера — звіт з'явиться тут.
+      </p>
+    ) : (
+      <ul class="grid gap-3" data-testid="flight-list">
+        {flights.map((flight) => (
+          <li data-testid="flight-card" data-status={flight.status}>
+            <a
+              href={`/flight/${flight.flight_id}`}
+              class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3 hover:border-slate-600"
+            >
+              <span class="font-mono">{flight.flight_id}</span>
+              {flight.status === 'error' ? (
+                <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
+                  помилка парсингу
+                </span>
+              ) : (
+                <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Base>

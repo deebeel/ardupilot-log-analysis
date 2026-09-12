@@ -1,0 +1,63 @@
+---
+import Base from '../../layouts/Base.astro';
+import StickOverlayChart from '../../components/StickOverlayChart.tsx';
+import AmplitudeHistogram from '../../components/AmplitudeHistogram.tsx';
+import VerdictPanel from '../../components/VerdictPanel.tsx';
+import { readFlight } from '../../lib/results.ts';
+
+export const prerender = false;
+
+// `id` береться з Astro.params у рантаймі; getStaticPaths свідомо не використовується.
+// Валідація id від path traversal — усередині readFlight.
+const payload = await readFlight(Astro.params.id);
+
+if (payload === null) {
+  return new Response('Not found', { status: 404 });
+}
+---
+
+{
+  payload.status === 'error' ? (
+    <Base title={`Помилка — ${payload.error.flight_id}`}>
+      <h1 class="mb-4 font-mono text-2xl font-semibold">{payload.error.flight_id}</h1>
+      <div data-testid="flight-error" class="rounded-lg border border-rose-500/40 bg-rose-500/10 p-6">
+        <p class="mb-2 font-semibold text-rose-300">Парсинг цього польоту впав</p>
+        <pre class="whitespace-pre-wrap break-words text-sm text-rose-200">{payload.error.error}</pre>
+      </div>
+      <a href="/" class="mt-6 inline-block text-sm text-slate-400 hover:text-slate-200">← до списку</a>
+    </Base>
+  ) : (
+    <Base title={`Звіт — ${payload.flight.flight_id}`}>
+      <h1 class="mb-1 font-mono text-2xl font-semibold" data-testid="flight-title">
+        {payload.flight.flight_id}
+      </h1>
+      <p class="mb-8 text-sm text-slate-400">
+        тривалість {Math.round(payload.flight.duration_s)} с · фаз: {payload.flight.phases.length}
+      </p>
+
+      <section class="mb-10">
+        <h2 class="mb-3 text-lg font-semibold">Стіки поверх attitude</h2>
+        <StickOverlayChart client:load series={payload.flight.series} />
+      </section>
+
+      <section class="mb-10">
+        <h2 class="mb-3 text-lg font-semibold">Гістограма амплітуд</h2>
+        <AmplitudeHistogram client:load histogram={payload.flight.amplitude_histogram} />
+      </section>
+
+      <section class="mb-10">
+        <h2 class="mb-3 text-lg font-semibold">Вердикт</h2>
+        <p class="mb-4 text-xs text-slate-500">
+          Пороги налаштовуються тут же — перерахунок відбувається у браузері, без запиту на сервер.
+        </p>
+        <VerdictPanel
+          client:load
+          metrics={payload.flight.metrics}
+          defaultThresholds={payload.flight.default_thresholds}
+        />
+      </section>
+
+      <a href="/" class="text-sm text-slate-400 hover:text-slate-200">← до списку</a>
+    </Base>
+  )
+}
