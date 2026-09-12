@@ -1,0 +1,19 @@
+# Дефолтні пороги вердикту.
+# УВАГА: значення — placeholder, зняті з демо-польоту flight-01_2026-09-11.
+# Після отримання good/bad-шаблонів замовника замінити ТІЛЬКИ цей файл, код не чіпати.
+# Семантика: value <= good_max -> good; good_max < value <= warn_max -> warning; інакше bad.
+corrections_per_min:
+  good_max: 6.0
+  warn_max: 12.0
+mean_amplitude:
+  good_max: 0.15
+  warn_max: 0.30
+mean_jerk:
+  good_max: 0.6
+  warn_max: 1.2
+oscillation_time_pct:
+  good_max: 0.10
+  warn_max: 0.25
+reaction_latency_ms:
+  good_max: 500
+  warn_max: 1000
