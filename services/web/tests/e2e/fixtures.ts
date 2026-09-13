@@ -2,9 +2,21 @@
  * Генератор тимчасових тек RESULTS_DIR для E2E: реальні файли на диску,
  * які читає реально піднятий SSR-сервер (ніяких моків ФС).
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+/**
+ * ФІКСОВАНИЙ (не `mkdtempSync`) корінь. `playwright.config.ts` перевиконується
+ * в КОЖНОМУ воркер-процесі (не лише один раз у головному) — випадковий
+ * `mkdtempSync` дав би різним процесам різні теки. Детермінований шлях гарантує,
+ * що всі процеси звертаються до одного каталогу на диску.
+ *
+ * Через те саме перевиконання конфіга деструктивні операції (очищення/засів)
+ * сюди НЕ виносяться — вони в `global-setup.ts`, який Playwright гарантовано
+ * запускає рівно один раз до старту будь-яких воркерів.
+ */
+const FIXTURE_ROOT = join(tmpdir(), 'ardupilot-la-web-e2e-fixtures');
 
 const POINTS = 2000;
 
@@ -70,14 +82,43 @@ function flight(id: string, metrics: ReturnType<typeof goodMetrics>) {
 export interface FixtureDirs {
   populated: string;
   empty: string;
+  /** Порожня на старті, приватна для поллінг-тестів — `populated` спільна й читається
+   *  паралельно іншими тестами, писати в неї під час прогону не можна. */
+  live: string;
 }
 
+const DIRS: FixtureDirs = {
+  populated: join(FIXTURE_ROOT, 'populated'),
+  empty: join(FIXTURE_ROOT, 'empty'),
+  live: join(FIXTURE_ROOT, 'live'),
+};
+
+/** Дає готові шляхи без жодних побічних ефектів — безпечно викликати з
+ *  `playwright.config.ts`, який перевиконується в кожному воркер-процесі. */
+export function fixtureDirs(): FixtureDirs {
+  return DIRS;
+}
+
+/** Прибрати вміст теки (без видалення самої теки — плаский `rmdir` рекурсивно на
+ *  всьому дереві іноді ловить ENOTEMPTY через гонку зі створенням; тут її нема,
+ *  бо тека нічия дитина не видаляється, лише файли в ній). */
+function emptyDir(dir: string): void {
+  mkdirSync(dir, { recursive: true });
+  for (const entry of readdirSync(dir)) {
+    unlinkSync(join(dir, entry));
+  }
+}
+
+/**
+ * Деструктивна підготовка: чистить усі три теки від стану попереднього прогону
+ * й засіває `populated`. Викликається ЛИШЕ з `global-setup.ts` (Playwright
+ * гарантує один виклик на весь прогін, на відміну від `playwright.config.ts`).
+ */
 export function prepareFixtures(): FixtureDirs {
-  const root = mkdtempSync(join(tmpdir(), 'ardu-web-e2e-'));
-  const populated = join(root, 'populated');
-  const empty = join(root, 'empty');
-  mkdirSync(populated);
-  mkdirSync(empty);
+  const { populated, empty, live } = DIRS;
+  emptyDir(populated);
+  emptyDir(empty);
+  emptyDir(live);
 
   const write = (name: string, payload: unknown) =>
     writeFileSync(join(populated, name), JSON.stringify(payload), 'utf8');
@@ -95,5 +136,15 @@ export function prepareFixtures(): FixtureDirs {
   // проміжний файл атомарного запису парсера — не має потрапити у список
   writeFileSync(join(populated, 'flight-partial.json.tmp'), '{"flight_id":', 'utf8');
 
-  return { populated, empty };
+  return DIRS;
+}
+
+/**
+ * Кладе ще один готовий JSON польоту у приватну `live`-теку поллінг-тестів.
+ * Використовує фіксований шлях з `DIRS` напряму (не `prepareFixtures()` —
+ * та перестворює/чистить усі три теки і призначена лише для конфіга).
+ */
+export function addLiveFlight(id: string, metrics: ReturnType<typeof goodMetrics> = goodMetrics()): void {
+  mkdirSync(DIRS.live, { recursive: true });
+  writeFileSync(join(DIRS.live, `${id}.json`), JSON.stringify(flight(id, metrics)), 'utf8');
 }

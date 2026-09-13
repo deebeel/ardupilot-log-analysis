@@ -1,0 +1,42 @@
+---
+// Спільний фрагмент списку польотів: рендериться і на /, і на партиалі /api/flights-fragment,
+// який htmx підвантажує поллінгом. Одна розмітка — щоб перший рендер і кожен наступний
+// поллінг-свап виглядали однаково.
+import type { FlightSummary } from '../lib/types.ts';
+
+interface Props {
+  flights: FlightSummary[];
+}
+
+const { flights } = Astro.props;
+---
+
+<div id="flight-list-root">
+  {
+    flights.length === 0 ? (
+      <p data-testid="empty-state" class="rounded-lg border border-slate-800 bg-slate-900/50 p-6 text-slate-400">
+        Поки немає жодного розібраного польоту. Покладіть лог у watched-теку парсера — звіт з'явиться тут.
+      </p>
+    ) : (
+      <ul class="grid gap-3" data-testid="flight-list">
+        {flights.map((flight) => (
+          <li data-testid="flight-card" data-status={flight.status}>
+            <a
+              href={`/flight/${flight.flight_id}`}
+              class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3 hover:border-slate-600"
+            >
+              <span class="font-mono">{flight.flight_id}</span>
+              {flight.status === 'error' ? (
+                <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
+                  помилка парсингу
+                </span>
+              ) : (
+                <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</div>

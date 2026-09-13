@@ -1,0 +1,23 @@
+---
+// Обгортка з hx-* атрибутами МАЄ бути частиною кожного свапу (включно з відповіддю
+// партиала), інакше після першого outerHTML-свапу htmx-атрибути зникнуть разом
+// зі старим елементом і поллінг зупиниться на одному оновленні.
+import FlightList from './FlightList.astro';
+import type { FlightSummary } from '../lib/types.ts';
+
+interface Props {
+  flights: FlightSummary[];
+}
+
+const { flights } = Astro.props;
+---
+
+<div
+  hx-get="/partials/flight-list"
+  hx-trigger="every 1s"
+  hx-swap="outerHTML"
+  hx-target="this"
+  data-testid="flight-list-poller"
+>
+  <FlightList flights={flights} />
+</div>

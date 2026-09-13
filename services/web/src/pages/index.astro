@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import FlightListPoller from '../components/FlightListPoller.astro';
 import { listFlights } from '../lib/results.ts';
 
 // Страховка на випадок зміни `output` у конфізі.
@@ -11,33 +12,17 @@ const flights = await listFlights();
 ---
 
 <Base title="Польоти — якість пілотування">
-  <h1 class="mb-6 text-2xl font-semibold">Польоти</h1>
+  <div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Польоти</h1>
+    <span class="text-xs text-slate-500" data-testid="poll-indicator">оновлюється щосекунди</span>
+  </div>
 
-  {
-    flights.length === 0 ? (
-      <p data-testid="empty-state" class="rounded-lg border border-slate-800 bg-slate-900/50 p-6 text-slate-400">
-        Поки немає жодного розібраного польоту. Покладіть лог у watched-теку парсера — звіт з'явиться тут.
-      </p>
-    ) : (
-      <ul class="grid gap-3" data-testid="flight-list">
-        {flights.map((flight) => (
-          <li data-testid="flight-card" data-status={flight.status}>
-            <a
-              href={`/flight/${flight.flight_id}`}
-              class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3 hover:border-slate-600"
-            >
-              <span class="font-mono">{flight.flight_id}</span>
-              {flight.status === 'error' ? (
-                <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
-                  помилка парсингу
-                </span>
-              ) : (
-                <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
-              )}
-            </a>
-          </li>
-        ))}
-      </ul>
-    )
-  }
+  <FlightListPoller flights={flights} />
 </Base>
+
+<script>
+  // Плейн-`<script>` у шаблоні Astro відправляється тільки клієнту й ніколи не
+  // виконується під час SSR (на відміну від імпорту у frontmatter, де `htmx.org`
+  // одразу падає на серверних глобалах типу `location`).
+  import 'htmx.org';
+</script>
