@@ -17,7 +17,12 @@ import sys
 import time
 from pathlib import Path
 
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import (
+    DirMovedEvent,
+    FileMovedEvent,
+    FileSystemEvent,
+    FileSystemEventHandler,
+)
 from watchdog.observers import Observer
 
 from parser.models import write_error
@@ -32,7 +37,7 @@ STABILIZE_S: float = 2.0
 #: Максимальний час одного парсингу, с.
 WORKER_TIMEOUT_S: float = 120.0
 
-log = logging.getLogger("parser.watcher")
+log: logging.Logger = logging.getLogger("parser.watcher")
 
 
 def is_log_file(path: str | Path) -> bool:
@@ -121,20 +126,20 @@ class InboxHandler(FileSystemEventHandler):
         self.results_dir = results_dir
         self.thresholds = thresholds
 
-    def _dispatch(self, event) -> None:
+    def _dispatch(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        handle(event.src_path, self.results_dir, self.thresholds)
+        handle(os.fsdecode(event.src_path), self.results_dir, self.thresholds)
 
-    def on_closed(self, event) -> None:
+    def on_closed(self, event: FileSystemEvent) -> None:
         self._dispatch(event)
 
-    def on_created(self, event) -> None:
+    def on_created(self, event: FileSystemEvent) -> None:
         self._dispatch(event)
 
-    def on_moved(self, event) -> None:
+    def on_moved(self, event: DirMovedEvent | FileMovedEvent) -> None:
         if not event.is_directory:
-            handle(event.dest_path, self.results_dir, self.thresholds)
+            handle(os.fsdecode(event.dest_path), self.results_dir, self.thresholds)
 
 
 def scan_existing(inbox: Path, results_dir: Path, thresholds: Path) -> None:

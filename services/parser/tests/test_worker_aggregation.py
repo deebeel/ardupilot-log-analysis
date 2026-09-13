@@ -5,11 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from parser.reader import DT, FlightData
+from parser.reader import DT, BoolArray, FlightData, FloatArray
 from parser.worker import compute_metrics, contiguous_segments, flight_id_from_path
 
 
-def make_flight(manual_mask: np.ndarray, roll: np.ndarray | None = None) -> FlightData:
+def make_flight(manual_mask: BoolArray, roll: FloatArray | None = None) -> FlightData:
     """FlightData з керованою маскою — без читання реального логу."""
     size = manual_mask.size
     grid = np.arange(size, dtype=float) * DT
@@ -33,7 +33,7 @@ def make_flight(manual_mask: np.ndarray, roll: np.ndarray | None = None) -> Flig
         ([False, True, True, False, True], [(1, 3), (4, 5)]),
     ],
 )
-def test_contiguous_segments_splits_the_mask_into_blocks(mask, expected):
+def test_contiguous_segments_splits_the_mask_into_blocks(mask: list[bool], expected: list[tuple[int, int]]) -> None:
     # Arrange
     array = np.array(mask, dtype=bool)
 
@@ -44,7 +44,7 @@ def test_contiguous_segments_splits_the_mask_into_blocks(mask, expected):
     assert result == expected
 
 
-def test_empty_mask_produces_no_segments():
+def test_empty_mask_produces_no_segments() -> None:
     # Arrange
     array = np.empty(0, dtype=bool)
 
@@ -55,7 +55,7 @@ def test_empty_mask_produces_no_segments():
     assert result == []
 
 
-def test_log_without_manual_modes_yields_zero_metrics():
+def test_log_without_manual_modes_yields_zero_metrics() -> None:
     # Arrange
     flight = make_flight(np.zeros(600, dtype=bool), roll=np.full(600, 0.8))
 
@@ -66,7 +66,7 @@ def test_log_without_manual_modes_yields_zero_metrics():
     assert result.corrections_per_min == {"roll": 0.0, "pitch": 0.0, "yaw": 0.0}
 
 
-def test_log_without_manual_modes_yields_null_reaction_latency():
+def test_log_without_manual_modes_yields_null_reaction_latency() -> None:
     # Arrange
     flight = make_flight(np.zeros(600, dtype=bool), roll=np.full(600, 0.8))
 
@@ -77,7 +77,7 @@ def test_log_without_manual_modes_yields_null_reaction_latency():
     assert result.reaction_latency_ms is None
 
 
-def test_metrics_ignore_samples_outside_manual_phases():
+def test_metrics_ignore_samples_outside_manual_phases() -> None:
     # Arrange
     mask = np.concatenate([np.ones(600, dtype=bool), np.zeros(600, dtype=bool)])
     roll = np.concatenate([np.zeros(600), np.full(600, 0.9)])
@@ -90,7 +90,7 @@ def test_metrics_ignore_samples_outside_manual_phases():
     assert result.mean_amplitude["roll"] == 0.0
 
 
-def test_constant_deflection_over_one_manual_minute_gives_one_correction_per_min():
+def test_constant_deflection_over_one_manual_minute_gives_one_correction_per_min() -> None:
     # Arrange
     flight = make_flight(np.ones(600, dtype=bool), roll=np.full(600, 0.5))
 
@@ -109,7 +109,7 @@ def test_constant_deflection_over_one_manual_minute_gives_one_correction_per_min
         ("/x/../weird@name.bin", "weird_name"),
     ],
 )
-def test_flight_id_is_derived_safely_from_the_file_name(path, expected):
+def test_flight_id_is_derived_safely_from_the_file_name(path: str, expected: str) -> None:
     # Arrange / параметризовано вище
 
     # Act

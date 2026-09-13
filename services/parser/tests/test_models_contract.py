@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -19,7 +20,7 @@ from parser.models import (
     write_json_atomic,
 )
 
-EXPECTED_TOP_LEVEL_KEYS = {
+EXPECTED_TOP_LEVEL_KEYS: set[str] = {
     "flight_id",
     "duration_s",
     "phases",
@@ -29,7 +30,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "amplitude_histogram",
 }
 
-AXES = {"roll": 1.0, "pitch": 2.0, "yaw": 3.0}
+AXES: dict[str, float] = {"roll": 1.0, "pitch": 2.0, "yaw": 3.0}
 
 
 def make_result(latency: float | None = 420.0, points: int = 10) -> FlightResult:
@@ -45,7 +46,7 @@ def make_result(latency: float | None = 420.0, points: int = 10) -> FlightResult
     )
 
 
-def test_result_exposes_all_contract_keys():
+def test_result_exposes_all_contract_keys() -> None:
     # Arrange
     result = make_result()
 
@@ -57,7 +58,7 @@ def test_result_exposes_all_contract_keys():
 
 
 @pytest.mark.parametrize("forbidden", FORBIDDEN_KEYS)
-def test_server_result_never_contains_a_precomputed_verdict(forbidden):
+def test_server_result_never_contains_a_precomputed_verdict(forbidden: str) -> None:
     # Arrange
     result = make_result()
 
@@ -68,7 +69,7 @@ def test_server_result_never_contains_a_precomputed_verdict(forbidden):
     assert forbidden not in payload
 
 
-def test_long_series_is_downsampled_to_the_point_limit():
+def test_long_series_is_downsampled_to_the_point_limit() -> None:
     # Arrange
     values = np.arange(50_000, dtype=float)
 
@@ -79,7 +80,7 @@ def test_long_series_is_downsampled_to_the_point_limit():
     assert len(result) == MAX_SERIES_POINTS
 
 
-def test_short_series_is_not_upsampled():
+def test_short_series_is_not_upsampled() -> None:
     # Arrange
     values = np.arange(37, dtype=float)
 
@@ -90,7 +91,7 @@ def test_short_series_is_not_upsampled():
     assert len(result) == 37
 
 
-def test_downsampling_preserves_first_and_last_samples():
+def test_downsampling_preserves_first_and_last_samples() -> None:
     # Arrange
     values = np.arange(50_000, dtype=float)
 
@@ -101,7 +102,7 @@ def test_downsampling_preserves_first_and_last_samples():
     assert (result[0], result[-1]) == (0.0, 49_999.0)
 
 
-def test_null_latency_serializes_as_json_null():
+def test_null_latency_serializes_as_json_null() -> None:
     # Arrange
     result = make_result(latency=None)
 
@@ -112,7 +113,7 @@ def test_null_latency_serializes_as_json_null():
     assert payload["metrics"]["reaction_latency_ms"] is None
 
 
-def test_histogram_edges_are_one_longer_than_counts():
+def test_histogram_edges_are_one_longer_than_counts() -> None:
     # Arrange
     values = np.linspace(-1.0, 1.0, 500)
 
@@ -123,7 +124,7 @@ def test_histogram_edges_are_one_longer_than_counts():
     assert len(edges) == len(counts) + 1
 
 
-def test_histogram_counts_only_samples_outside_deadband():
+def test_histogram_counts_only_samples_outside_deadband() -> None:
     # Arrange
     values = np.concatenate([np.zeros(100), np.full(60, 0.4)])
 
@@ -134,7 +135,7 @@ def test_histogram_counts_only_samples_outside_deadband():
     assert sum(counts) == int(np.count_nonzero(outside_deadband(values)))
 
 
-def test_atomic_write_leaves_no_temporary_file_behind(tmp_path):
+def test_atomic_write_leaves_no_temporary_file_behind(tmp_path: Path) -> None:
     # Arrange
     destination = tmp_path / "flight-99.json"
 
@@ -145,7 +146,7 @@ def test_atomic_write_leaves_no_temporary_file_behind(tmp_path):
     assert list(tmp_path.glob("*.tmp")) == []
 
 
-def test_atomic_write_produces_readable_json(tmp_path):
+def test_atomic_write_produces_readable_json(tmp_path: Path) -> None:
     # Arrange
     destination = tmp_path / "flight-99.json"
 
@@ -156,7 +157,7 @@ def test_atomic_write_produces_readable_json(tmp_path):
     assert json.loads(destination.read_text())["flight_id"] == "flight-99_2026-01-01"
 
 
-def test_error_result_carries_the_failure_message(tmp_path):
+def test_error_result_carries_the_failure_message(tmp_path: Path) -> None:
     # Arrange
     message = "DFReader blew up"
 
@@ -167,7 +168,7 @@ def test_error_result_carries_the_failure_message(tmp_path):
     assert json.loads(path.read_text())["error"] == message
 
 
-def test_missing_thresholds_file_yields_empty_config(tmp_path):
+def test_missing_thresholds_file_yields_empty_config(tmp_path: Path) -> None:
     # Arrange
     missing = tmp_path / "absent.yaml"
 
@@ -178,7 +179,7 @@ def test_missing_thresholds_file_yields_empty_config(tmp_path):
     assert result == {}
 
 
-def test_default_thresholds_file_defines_all_five_metrics():
+def test_default_thresholds_file_defines_all_five_metrics() -> None:
     # Arrange
     from conftest import THRESHOLDS
 

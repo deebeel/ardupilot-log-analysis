@@ -8,8 +8,36 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeAlias, TypedDict
 
 import numpy as np
+import numpy.typing as npt
+
+#: Псевдоніми numpy-серій.
+FloatArray: TypeAlias = npt.NDArray[np.float64]
+BoolArray: TypeAlias = npt.NDArray[np.bool_]
+
+
+class PhaseDict(TypedDict):
+    """Фаза польоту у вигляді словника (звідси будується `models.Phase`)."""
+
+    mode: str
+    start_s: float
+    end_s: float
+    duration_s: float
+    manual: bool
+
+
+class RawRecords(TypedDict):
+    """Сирі записи одного логу до нормалізації."""
+
+    params: dict[str, float]
+    rc_t: FloatArray
+    rc_v: dict[int, FloatArray]
+    att_t: FloatArray
+    att_roll: FloatArray
+    att_pitch: FloatArray
+    modes: list[tuple[float, str]]
 
 #: Частота спільної сітки ресемплінгу, Гц.
 RESAMPLE_HZ: float = 10.0
@@ -75,12 +103,12 @@ class RcCalibration:
 class FlightData:
     """Нормалізовані серії на спільній сітці + фази режимів."""
 
-    t: np.ndarray
-    sticks: dict[str, np.ndarray]
-    att_roll: np.ndarray
-    att_pitch: np.ndarray
-    manual_mask: np.ndarray
-    phases: list[dict] = field(default_factory=list)
+    t: FloatArray
+    sticks: dict[str, FloatArray]
+    att_roll: FloatArray
+    att_pitch: FloatArray
+    manual_mask: BoolArray
+    phases: list[PhaseDict] = field(default_factory=list)
     dt: float = DT
 
     @property
@@ -99,9 +127,9 @@ def mode_name(number: int) -> str:
     return PLANE_MODE_NAMES.get(int(number), f"MODE_{int(number)}")
 
 
-def normalize_channel(pwm: np.ndarray | float, calibration: RcCalibration) -> np.ndarray:
+def normalize_channel(pwm: FloatArray | float, calibration: RcCalibration) -> FloatArray:
     """PWM -> [-1, +1], окремими half-range нижче й вище trim, з кліпом."""
-    pwm = np.asarray(pwm, dtype=float)
+    pwm = np.asarray(pwm, dtype=np.float64)
     below = calibration.trim - calibration.min
     above = calibration.max - calibration.trim
     delta = pwm - calibration.trim
@@ -125,11 +153,11 @@ def rc_calibrations(params: dict[str, float]) -> dict[str, RcCalibration]:
 
 def build_phases(
     mode_changes: list[tuple[float, str]], start_s: float, end_s: float
-) -> list[dict]:
+) -> list[PhaseDict]:
     """Список фаз з подій MODE; остання фаза закривається кінцем логу."""
     if not mode_changes:
         return []
-    phases: list[dict] = []
+    phases: list[PhaseDict] = []
     for index, (timestamp, name) in enumerate(mode_changes):
         begin = max(timestamp, start_s)
         finish = mode_changes[index + 1][0] if index + 1 < len(mode_changes) else end_s
@@ -147,7 +175,7 @@ def build_phases(
     return phases
 
 
-def manual_mask_from_phases(t: np.ndarray, phases: list[dict]) -> np.ndarray:
+def manual_mask_from_phases(t: FloatArray, phases: list[PhaseDict]) -> BoolArray:
     """Булева маска семплів, що потрапляють у ручні фази."""
     mask = np.zeros(t.size, dtype=bool)
     for phase in phases:
@@ -156,16 +184,16 @@ def manual_mask_from_phases(t: np.ndarray, phases: list[dict]) -> np.ndarray:
     return mask
 
 
-def resample(times: np.ndarray, values: np.ndarray, grid: np.ndarray) -> np.ndarray:
+def resample(times: FloatArray, values: FloatArray, grid: FloatArray) -> FloatArray:
     """Лінійна інтерполяція на спільну сітку; порожній вхід -> нулі."""
     if times.size == 0:
-        return np.zeros(grid.size, dtype=float)
+        return np.zeros(grid.size, dtype=np.float64)
     if times.size == 1:
         return np.full(grid.size, float(values[0]))
-    return np.interp(grid, times, values)
+    return np.asarray(np.interp(grid, times, values), dtype=np.float64)
 
 
-def _raw_records(path: str | Path) -> dict:
+def _raw_records(path: str | Path) -> RawRecords:
     """Сирий прохід по логу: PARM, RCIN, ATT, MODE."""
     from pymavlink import mavutil  # локальний імпорт: важкий і потрібен лише тут
 
@@ -200,11 +228,11 @@ def _raw_records(path: str | Path) -> dict:
 
     return {
         "params": params,
-        "rc_t": np.asarray(rc_t, dtype=float),
-        "rc_v": {c: np.asarray(v, dtype=float) for c, v in rc_v.items()},
-        "att_t": np.asarray(att_t, dtype=float),
-        "att_roll": np.asarray(att_roll, dtype=float),
-        "att_pitch": np.asarray(att_pitch, dtype=float),
+        "rc_t": np.asarray(rc_t, dtype=np.float64),
+        "rc_v": {c: np.asarray(v, dtype=np.float64) for c, v in rc_v.items()},
+        "att_t": np.asarray(att_t, dtype=np.float64),
+        "att_roll": np.asarray(att_roll, dtype=np.float64),
+        "att_pitch": np.asarray(att_pitch, dtype=np.float64),
         "modes": modes,
     }
 

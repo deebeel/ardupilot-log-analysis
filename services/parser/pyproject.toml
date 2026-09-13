@@ -17,6 +17,8 @@ parser-worker = "parser.worker:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "mypy>=1.11",
+    "types-PyYAML>=6.0",
 ]
 
 [build-system]
@@ -29,3 +31,20 @@ packages = ["src/parser"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+# `uv run mypy` (без аргументів) перевіряє і сервіс, і тести — див. `files`.
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/parser", "tests"]
+mypy_path = ["src", "tests"]
+# Тести імпортують один одного й conftest як top-level модулі (pytest rootdir на sys.path),
+# тому пакетної структури з __init__.py у tests/ немає.
+explicit_package_bases = true
+namespace_packages = true
+pretty = true
+
+# Точкові послаблення лише для сторонніх бібліотек без стабів.
+[[tool.mypy.overrides]]
+module = ["pymavlink.*"]
+ignore_missing_imports = true

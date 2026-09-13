@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 
 import pytest
 
@@ -23,7 +24,7 @@ from parser.watcher import handle, is_log_file, is_up_to_date, run_worker, wait_
         ("notes.txt", False),
     ],
 )
-def test_only_dataflash_logs_are_accepted_for_parsing(name, expected):
+def test_only_dataflash_logs_are_accepted_for_parsing(name: str, expected: bool) -> None:
     # Arrange / параметризовано вище
 
     # Act
@@ -33,7 +34,7 @@ def test_only_dataflash_logs_are_accepted_for_parsing(name, expected):
     assert result is expected
 
 
-def test_result_newer_than_source_is_considered_up_to_date(tmp_path):
+def test_result_newer_than_source_is_considered_up_to_date(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-01.bin"
     source.write_bytes(b"data")
@@ -48,7 +49,7 @@ def test_result_newer_than_source_is_considered_up_to_date(tmp_path):
     assert up_to_date is True
 
 
-def test_result_older_than_source_is_not_up_to_date(tmp_path):
+def test_result_older_than_source_is_not_up_to_date(tmp_path: Path) -> None:
     # Arrange
     result = tmp_path / "flight-01.json"
     result.write_text("{}")
@@ -63,7 +64,7 @@ def test_result_older_than_source_is_not_up_to_date(tmp_path):
     assert up_to_date is False
 
 
-def test_absent_result_is_not_up_to_date(tmp_path):
+def test_absent_result_is_not_up_to_date(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-01.bin"
     source.write_bytes(b"data")
@@ -75,7 +76,7 @@ def test_absent_result_is_not_up_to_date(tmp_path):
     assert up_to_date is False
 
 
-def test_static_file_is_reported_as_stable(tmp_path):
+def test_static_file_is_reported_as_stable(tmp_path: Path) -> None:
     # Arrange
     path = tmp_path / "flight-01.bin"
     path.write_bytes(b"complete payload")
@@ -87,7 +88,7 @@ def test_static_file_is_reported_as_stable(tmp_path):
     assert stable is True
 
 
-def test_missing_file_is_not_reported_as_stable(tmp_path):
+def test_missing_file_is_not_reported_as_stable(tmp_path: Path) -> None:
     # Arrange
     path = tmp_path / "absent.bin"
 
@@ -98,7 +99,7 @@ def test_missing_file_is_not_reported_as_stable(tmp_path):
     assert stable is False
 
 
-def test_file_still_being_appended_is_not_reported_as_stable(tmp_path):
+def test_file_still_being_appended_is_not_reported_as_stable(tmp_path: Path) -> None:
     # Arrange
     path = tmp_path / "flight-01.bin"
     path.write_bytes(b"start")
@@ -111,7 +112,7 @@ def test_file_still_being_appended_is_not_reported_as_stable(tmp_path):
     assert stable is False
 
 
-def test_corrupt_log_produces_an_error_result(tmp_path):
+def test_corrupt_log_produces_an_error_result(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-broken.bin"
     source.write_bytes(b"this is definitely not a dataflash log")
@@ -123,7 +124,7 @@ def test_corrupt_log_produces_an_error_result(tmp_path):
     assert (tmp_path / "flight-broken.error.json").is_file()
 
 
-def test_error_result_contains_the_worker_stderr(tmp_path):
+def test_error_result_contains_the_worker_stderr(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-broken.bin"
     source.write_bytes(b"this is definitely not a dataflash log")
@@ -135,7 +136,7 @@ def test_error_result_contains_the_worker_stderr(tmp_path):
     assert json.loads((tmp_path / "flight-broken.error.json").read_text())["error"] != ""
 
 
-def test_worker_timeout_produces_an_error_result(tmp_path):
+def test_worker_timeout_produces_an_error_result(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-slow.bin"
     source.write_bytes(b"not a real log")
@@ -147,7 +148,7 @@ def test_worker_timeout_produces_an_error_result(tmp_path):
     assert "timed out" in json.loads((tmp_path / "flight-slow.error.json").read_text())["error"]
 
 
-def test_worker_failure_returns_nonzero_exit_code(tmp_path):
+def test_worker_failure_returns_nonzero_exit_code(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-broken.bin"
     source.write_bytes(b"nope")
@@ -159,7 +160,7 @@ def test_worker_failure_returns_nonzero_exit_code(tmp_path):
     assert code != 0
 
 
-def test_up_to_date_file_is_skipped_without_spawning_the_worker(tmp_path):
+def test_up_to_date_file_is_skipped_without_spawning_the_worker(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "flight-01.bin"
     source.write_bytes(b"not a real log")
@@ -174,7 +175,7 @@ def test_up_to_date_file_is_skipped_without_spawning_the_worker(tmp_path):
     assert not (tmp_path / "flight-01.error.json").exists()
 
 
-def test_non_log_file_is_ignored_by_the_handler(tmp_path):
+def test_non_log_file_is_ignored_by_the_handler(tmp_path: Path) -> None:
     # Arrange
     source = tmp_path / "partial.bin.tmp"
     source.write_bytes(b"half a log")
@@ -186,7 +187,7 @@ def test_non_log_file_is_ignored_by_the_handler(tmp_path):
     assert list(tmp_path.glob("*.json")) == []
 
 
-def test_failed_parse_does_not_block_the_next_file(tmp_path):
+def test_failed_parse_does_not_block_the_next_file(tmp_path: Path) -> None:
     # Arrange
     broken = tmp_path / "flight-bad.bin"
     broken.write_bytes(b"garbage")

@@ -18,10 +18,10 @@ from parser.models import FlightResult, Metrics, Phase, downsample, load_thresho
 from parser.reader import FlightData, read_flight
 
 #: Дефолтні шляхи в контейнері (перевизначаються аргументами CLI).
-DEFAULT_RESULTS_DIR = Path("/data/results")
-DEFAULT_THRESHOLDS = Path(__file__).resolve().parents[2] / "thresholds.yaml"
+DEFAULT_RESULTS_DIR: Path = Path("/data/results")
+DEFAULT_THRESHOLDS: Path = Path(__file__).resolve().parents[2] / "thresholds.yaml"
 
-_ID_SAFE = re.compile(r"[^A-Za-z0-9_-]+")
+_ID_SAFE: re.Pattern[str] = re.compile(r"[^A-Za-z0-9_-]+")
 
 
 def flight_id_from_path(path: str | Path) -> str:
