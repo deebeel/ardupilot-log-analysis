@@ -39,20 +39,43 @@ uv run keyboard-adapter --connect udp:127.0.0.1:14550
 # опції: --hz 20 --rate 2000 --duration 60
 ```
 
-Утиліта працює **на хості**, не в контейнері (потрібен доступ до клавіатури), і конектиться
-до проброшеного порту SITL-контейнера. `pynput` свідомо не входить у серверний образ парсера.
+Утиліта працює **на хості** (потрібен доступ до клавіатури), поруч із нативним SITL
+(`sim_vehicle.py`, без контейнера — див. `docs/host-prerequisites.md`), і конектиться до
+UDP-порту, який роздає MAVProxy. `pynput`/`evdev` свідомо не входять у серверний образ парсера.
 
-На macOS `pynput` потребує дозволу Accessibility/Input Monitoring для терміналу.
-Це не впливає на тести: вся логіка осей ізольована в `axes.py` без pynput і pymavlink.
+### Бекенд клавіатури: `pynput` чи `evdev`
+
+За замовчуванням — `pynput` (X11 global-grab). На Ubuntu з **Wayland**-сесією (типово
+22.04+) `pynput` не отримує подій узагалі — це архітектурне рішення Wayland про ізоляцію
+застосунків, не помилка бібліотеки. Перевірити сесію: `echo $XDG_SESSION_TYPE`.
+
+Два виходи без зміни логіки осей (`axes.py` від бекенда не залежить):
+
+```bash
+# 1. Сесія Xorg (на екрані логіну обрати "Ubuntu on Xorg") — pynput працює як є.
+uv run keyboard-adapter --input-backend pynput
+
+# 2. evdev — читає /dev/input напряму, працює однаково на Xorg і Wayland.
+#    Потрібна група `input`: sudo usermod -aG input $USER && релогін.
+uv run keyboard-adapter --input-backend evdev
+# або з явним пристроєм, якщо автовизначення (перший з KEY_A) обрало не те:
+uv run keyboard-adapter --input-backend evdev --device /dev/input/event3
+```
+
+`evdev` не встановлюється на macOS (лінукс-специфічне C-розширення, env-маркер у
+`pyproject.toml`) — на macOS доступний лише `pynput` з дозволом Accessibility/Input
+Monitoring для терміналу. Це не впливає на тести жодного з бекендів: логіка осей і
+дешифрування подій ізольовані від реального I/O й тестуються без pynput/evdev.
 
 ## Структура
 
 ```
 src/keyboard_adapter/
-├── axes.py       # чиста логіка осей (AxisState.step) — тестується без I/O
-├── loop.py       # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
-├── keyboard.py   # тонка обгортка над pynput (імпорт усередині start())
-└── cli.py        # entrypoint: pymavlink-конект + склейка
+├── axes.py          # чиста логіка осей (AxisState.step) — тестується без I/O
+├── loop.py          # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
+├── keyboard.py      # бекенд pynput (X11 global-grab; імпорт усередині start())
+├── evdev_source.py  # бекенд evdev (kernel /dev/input; працює на Xorg і Wayland)
+└── cli.py           # entrypoint: pymavlink-конект + вибір бекенда + склейка
 ```
 
 Тести: `uv run pytest`. Сценарії та граничні значення — `TEST-PLAN.md`.
@@ -60,5 +83,7 @@ src/keyboard_adapter/
 Типи: `uv run mypy` — strict-режим на `src/` і `tests/`. `mav`/`clock`/`keys_source`
 описані протоколами (`ManualControlSender`, `Clock`, `KeysSource`), а не `Any`;
 тестові фейки структурно їм відповідають, що mypy перевіряє статично.
-`ignore_missing_imports` увімкнено точково лише для `pymavlink.*` і `pynput.*`
-(вони не постачають stubs).
+`ignore_missing_imports` увімкнено точково лише для `pymavlink.*`, `pynput.*` і
+`evdev.*` (жоден не постачає stubs). Тести `evdev_source.py` підміняють увесь модуль
+`evdev` у `sys.modules` фейком (`tests/evdev_fakes.py`) — реальний пакет для прогону
+тестів не потрібен, тож усе працює й на macOS, де `evdev` узагалі не встановлюється.

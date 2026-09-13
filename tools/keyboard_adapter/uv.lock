@@ -193,6 +193,7 @@ name = "keyboard-adapter"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "evdev", marker = "sys_platform == 'linux'" },
     { name = "pymavlink" },
     { name = "pynput" },
 ]
@@ -205,6 +206,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.7" },
     { name = "pymavlink", specifier = ">=2.4.41" },
     { name = "pynput", specifier = ">=1.7.7" },
 ]

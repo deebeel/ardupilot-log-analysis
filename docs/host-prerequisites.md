@@ -80,7 +80,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.profile
 cd tools/keyboard_adapter
 uv sync
-uv run keyboard-adapter --connect udp:127.0.0.1:14550
+# Xorg-сесія:
+uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend pynput
+# Wayland-сесія (рекомендовано за підтвердженого Wayland, група `input` потрібна):
+sudo usermod -aG input $USER   # один раз, тоді релогін
+uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend evdev
 ```
 
 #### keyboard-адаптер під Wayland
@@ -99,9 +103,8 @@ Ubuntu 22.04+ типово Wayland, де `pynput` (X11 global-grab) не пра�
   плюс, ближче до поведінки реального джойстика).
 
   **Рекомендація за підтвердженого Wayland: `evdev`**, щоб не змінювати сесію логіну
-  щоразу. Потребує окремого I/O-бекенда в `tools/keyboard_adapter` (`keyboard.py` описаний
-  через `Protocol` саме для такої заміни — чиста логіка осей і тести не зміняться).
-  **[не реалізовано]** — наразі в коді є лише `pynput`-бекенд.
+  щоразу. Реалізовано: `uv run keyboard-adapter --input-backend evdev` (автовизначення
+  пристрою, або `--device /dev/input/eventN` явно) — див. `tools/keyboard_adapter/README.md`.
 
 - **[не перевірено]** Може знадобитись доступ до `/dev/input` навіть для `pynput`, якщо
   бібліотека сама піде evdev-шляхом на Wayland (деякі збірки так роблять).

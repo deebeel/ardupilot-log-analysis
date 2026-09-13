@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import argparse
 import time
-from typing import Optional
+from typing import Optional, Protocol
 
 from .axes import DEFAULT_RATE, AxisState
 from .keyboard import KeyboardSource
 from .loop import DEFAULT_HZ, ManualControlSender, run_loop
+
+
+class KeySource(Protocol):
+    """Спільний мінімум `KeyboardSource`/`EvdevSource`, потрібний тут: не
+    `start()` (той повертає різні конкретні типи в різних бекендах — виклик
+    робимо одразу після конструювання, ще на конкретному типі)."""
+
+    def snapshot(self) -> set[str]: ...
+
+    def stop(self) -> None: ...
 
 
 class SystemClock:
@@ -27,6 +37,19 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--hz", type=float, default=DEFAULT_HZ)
     parser.add_argument("--rate", type=float, default=DEFAULT_RATE, help="одиниць/с")
     parser.add_argument("--duration", type=float, default=None, help="секунд (за замовчуванням — до Ctrl+C)")
+    parser.add_argument(
+        "--input-backend",
+        choices=["pynput", "evdev"],
+        default="pynput",
+        help="pynput — X11-сесія (Xorg); evdev — Linux, працює й на Wayland "
+        "(потрібна група `input`)",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="шлях до /dev/input/eventN для --input-backend evdev "
+        "(за замовчуванням — автовизначення)",
+    )
     return parser.parse_args(argv)
 
 
@@ -38,7 +61,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     conn.wait_heartbeat()
     print(f"heartbeat from system {conn.target_system} component {conn.target_component}")
 
-    source = KeyboardSource().start()
+    source: KeySource
+    if args.input_backend == "evdev":
+        from .evdev_source import EvdevSource
+
+        source = EvdevSource(device_path=args.device)
+        source.start()
+    else:
+        keyboard_source = KeyboardSource()
+        keyboard_source.start()
+        source = keyboard_source
+
     print("W/S pitch  A/D roll  Q/E yaw  Shift/Ctrl throttle   (Ctrl+C — вихід)")
     try:
         mav: ManualControlSender = conn.mav
