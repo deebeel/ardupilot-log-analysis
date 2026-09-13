@@ -234,15 +234,17 @@ volumes: { caddy_data: }
 
 `Caddyfile`: `{$DOMAIN} { reverse_proxy web:4321 }` — авто-HTTPS.
 Локально — `DOMAIN=localhost` (Caddy дає self-signed) або взагалі профіль без caddy.
-SITL-контейнер — **окремий** compose (`deploy/compose/docker-compose.sitl.yml`), він живе
-на іншому хості; портами наружу `5760/tcp`, `14550/udp`.
+SITL не контейнеризується (тікет: "у ВМ або на bare-metal" — Docker не згаданий, а VM уже дає
+ізоляцію). Піднімається нативно в Ubuntu VM через `sim_vehicle.py` (компілює й запускає
+`arduplane`, сам стартує MAVProxy з `--console --map`, роздає UDP `14550`); `.BIN`-логи —
+`ArduPlane/logs/`, `.tlog` — там, де запущено MAVProxy. Дивись `docs/host-prerequisites.md`.
 
 ---
 
 ## 6. Makefile (локально)
 
 ```
-sitl-up / sitl-down      # docker compose -f docker-compose.sitl.yml
+sitl-up                  # cd ardupilot/ArduPlane && sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map
 keyboard                 # uv run --project tools/keyboard_adapter ...
 stack-up / stack-down    # локальний прогін parser+web
 build                    # buildx --platform linux/amd64, обидва образи
@@ -294,7 +296,7 @@ deploy/ansible/
 
 1. `parser` (§1) на наявному `flight-01` — єдиний крок, що не залежить ні від чого зовнішнього.
 2. `web` (§2) на JSON з кроку 1, локально.
-3. SITL-контейнер + `keyboard_adapter` (§4), перші ручні польоти.
+3. SITL нативно у Ubuntu VM (`sim_vehicle.py`) + `keyboard_adapter` (§4), перші ручні польоти.
 4. compose + Caddy локально (§5), Makefile (§6).
 5. WireGuard між двома локальними VM (§3).
 6. Ansible на реальний VPS (§7), фінальний прогін строго за README.

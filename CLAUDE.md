@@ -26,20 +26,20 @@
 - Явно не відомо, чи є на VPS вихід в інтернет за межі того, що прописано в docker-compose (WireGuard/Caddy-ACME) — вважати, що нема, і не покладатись на нього під час білду.
 - Образи не пушаться в registry і не білдяться на VPS (`docker build` тягне base-images з Docker Hub — залежність від інтернету на VPS). Замість цього: локально `docker compose build` → `docker save | gzip` → Ansible копіює tar.gz + compose/конфіги на VPS (SSH/rsync) → на VPS `docker load` (офлайн) → `docker compose up -d` (без `--build`, образи вже в daemon).
 - Dockerfile'и (parser, web) — multi-stage, щоб фінальний образ був без білд-залежностей (uv/npm), тільки рантайм-артефакти.
-- **Архітектура**: якщо білдити на Mac (Apple Silicon = `arm64`), а VPS — типово `amd64`, образ іншої архітектури просто не запуститься ("exec format error"). Явно білдити під ціль: `docker buildx build --platform linux/amd64 ...` (звірити реальну архітектуру VPS через `uname -m`), і хоч раз перевірити запуск під `--platform linux/amd64` (є нативні C-розширення в `pymavlink`).
+- **Архітектура**: якщо білдити на Mac (Apple Silicon = `arm64`), а VPS — типово `amd64`, образ іншої архітектури просто не запуститься ("exec format error"). Явно білдити під ціль: `docker buildx build --platform linux/amd64 ...` (звірити реальну архітектуру VPS через `uname -m`), і хоч раз перевірити запуск під `--platform linux/amd64` (є нативні C-розширення в `pymavlink`). Стосується лише `parser`/`web` — SITL не контейнеризується, тож arm64 VM (UTM) vs amd64 VPS для нього не проблема.
 - Якщо з'ясується, що на VPS взагалі немає жодного outbound-доступу (навіть до ACME Let's Encrypt) — уточнити в замовника заздалегідь, бо без нього неможливий сам критерій "справжній HTTPS з реальним сертифікатом".
 - Caddy — reverse-proxy з авто-HTTPS.
-- Порядок: повністю зібрати й перевірити локально (SITL, parser, web, тестовий WireGuard між двома локальними VM) → тоді Ansible на реальний VPS/DNS/SSL, фінальний прогін строго за README.
-- Контейнером ізолюється лише **SITL**. GCS, візуалізатор і keyboard-adapter — на хості, конект до SITL по проброшених MAVLink-портах (TCP `:5760`/UDP `:14550`).
+- Порядок: повністю зібрати й перевірити локально (SITL нативно у VM, parser, web, тестовий WireGuard між двома локальними VM) → тоді Ansible на реальний VPS/DNS/SSL, фінальний прогін строго за README.
+- **SITL не контейнеризується.** Тікет дослівно: "у віртуальній машині або на bare-metal (технологію обираєш сам)" — Docker як варіант не згаданий, а VM (UTM Ubuntu) уже дає ізоляцію, другий шар нічого не додає. SITL піднімається нативно через `sim_vehicle.py` прямо в Ubuntu VM/bare-metal; GCS/візуалізатор (MAVProxy) і keyboard-adapter — там само на хості, без проброшених портів контейнера. Контейнеризація лишається лише там, де тікет її фактично вимагає — `parser`/`web` на VPS.
 - **Візуалізація — MAVProxy** (`--master=tcp:127.0.0.1:5760 --map --console`): закриває і роль GCS, і візуалізацію. Тікет 3D **не вимагає** («на твій розсуд: FlightGear, Mission Planner/QGC з картою чи інше»), тож мапи достатньо. Відпадають QGC/AppImage/`libfuse2`, FlightGear і вимога до 3D-прискорення у VM. FlightGear — опційно, лише заради ефектнішого запису.
 - Підготовка хоста (пакети, пастки Wayland/`pynput`, libfuse2 для QGC) — `docs/host-prerequisites.md`, чернетка для README.
-- Кореневий Makefile для локального запуску (`sitl-up`, `visualizer`, `keyboard-adapter`) — обгортки над `docker compose`/`uv run`; Ansible локально — оверкіл.
+- Кореневий Makefile для локального запуску (`sitl-up` → `sim_vehicle.py`, `keyboard-adapter` → `uv run`); Ansible локально — оверкіл.
 - Логи доставляються `rsync`/`scp` через WireGuard у watched-теку парсера, не жива стрім-передача.
 - Відео польоту для здачі — поза VPS/сервісом (репозиторій/git-lfs або посилання в README).
 
 **README.md vs README.mac.md**
 - `README.md` (канонічний, оцінюється критерієм "стенд відтворюється без додаткових пояснень") покриває **тільки Ubuntu** — саме середовище з тікету (ВМ або bare-metal Ubuntu для SITL, Ubuntu VPS). Ніяких macOS-специфічних кроків/приміток там бути не повинно.
-- `README.mac.md` — окремий, необов'язковий файл для власного dev/test-циклу на Mac (Docker Desktop замість bare-metal Ubuntu для SITL-контейнера, FlightGear/QGroundControl як нативні macOS-візуалізатори, `--platform linux/amd64` при білді під VPS). Рев'юєр цей файл не використовує.
+- `README.mac.md` — окремий, необов'язковий файл, звужений до dev-залежностей для розробки `parser`/`web` на Mac (`uv`, Node, Docker лише для збірки образів під VPS з `--platform linux/amd64`). SITL/MAVProxy/keyboard-adapter там не описуються — весь стенд живе в Ubuntu VM, Mac їх не запускає. Рев'юєр цей файл не використовує.
 
 **Керування (замість джойстика)**
 - Клавіатура погоджена замовником напряму.
