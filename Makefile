@@ -6,7 +6,7 @@ INBOX_DIR := $(DATA_DIR)/inbox
 
 # Дефолт відповідає docs/host-prerequisites.md; перевизначити можна через
 # .envrc (VM_ARDUPILOT_DIR), якщо клон на VM лежить деінде.
-VM_ARDUPILOT_DIR ?= ~/ardupilot
+VM_ARDUPILOT_DIR ?= ~/Documents/ardupilot
 
 .PHONY: fetch-logs
 
@@ -20,5 +20,5 @@ fetch-logs:
 	@test -n "$(VM_USER)" || { echo "VM_USER не встановлено (див. .envrc)"; exit 1; }
 	mkdir -p $(INBOX_DIR)
 	rsync -avz "$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/logs/" $(INBOX_DIR)/
-	rsync -avz --include='*.tlog' --include='*/' --exclude='*' \
+	rsync -avz -m --include='*.tlog' --include='*/' --exclude='*' \
 		"$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/" $(INBOX_DIR)/
