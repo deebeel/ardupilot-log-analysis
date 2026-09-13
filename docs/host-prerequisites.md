@@ -1,77 +1,130 @@
 # Підготовка хоста (чернетка для README)
 
 Джерело для секції «підготовка хоста» майбутнього `README.md` (Ubuntu) і `README.mac.md`.
-Поки не перевірено на реальному стенді — пункти, позначені **[не перевірено]**, обов'язково
-пройти живцем до здачі.
+Стенд — **одна Ubuntu VM**: SITL нативно (`sim_vehicle.py`, без контейнера), MAVProxy як
+GCS + 2D-візуалізатор в одному процесі, keyboard-адаптер нативно на тому самому хості.
+Docker у цій VM не потрібен взагалі — він потрібен лише окремо, для збірки образів
+`parser`/`web` під VPS. Пункти, позначені **[не перевірено]**, пройти живцем до здачі.
 
 ## Ролі програм на стенді (не плутати)
 
 | Роль | Що робить | Чим закривається |
 |---|---|---|
-| **SITL** | рахує фізику апарата, віддає MAVLink | контейнер (`ardupilot` SITL, ArduPlane 4.6) |
-| **GCS** (наземна станція) | телеметрія, HUD, режими, arm/disarm, мапа | QGroundControl, Mission Planner або MAVProxy |
-| **Візуалізатор** | показує політ (мапа або 3D-вид) | MAVProxy `--map`, QGC/Mission Planner з картою, FlightGear |
+| **SITL** | рахує фізику апарата, віддає MAVLink | нативно `sim_vehicle.py` (ArduPlane 4.6, без контейнера) |
+| **GCS + візуалізатор** | телеметрія, HUD, режими, arm/disarm, 2D-мапа | MAVProxy (`--map --console`) — одне рішення на обидві ролі |
 | **keyboard-адаптер** | клавіатура → `MANUAL_CONTROL` | `tools/keyboard_adapter` |
-
-GCS і візуалізатор — **різні ролі**, але одна програма може закривати обидві. FlightGear нічим
-не керує: фізику рахує SITL, FlightGear лише рендерить 3D. QGC/Mission Planner і MAVProxy — це
-GCS, які водночас дають мапу польоту.
 
 **Тікет 3D не вимагає.** Дослівно: «Візуалізація польоту — на твій розсуд: FlightGear,
 Mission Planner/QGC з картою чи інше; допускається запуск візуалізатора на хості поза ВМ».
-Тобто мапа (2D) достатня, і вибір інструмента лишається за виконавцем.
+MAVProxy закриває GCS і візуалізацію одночасно, без QGC/AppImage/`libfuse2`/FlightGear і без
+вимоги до 3D-прискорення у VM. FlightGear лишається опційним — лише заради ефектнішого запису.
 
-**Обраний варіант: MAVProxy** (`--map --console`) — закриває і GCS, і візуалізацію одночасно.
-Наслідки: не потрібні QGC/AppImage/`libfuse2`, не потрібен FlightGear, і — головне — зникає
-вимога до 3D-прискорення у віртуальній машині, що був основним ризиком при виборі VM.
-FlightGear лишається опційним: дає ефектніший запис для здачі, але не обов'язковий.
+## Ubuntu (канонічний README) — команди по кроках
 
-## Ubuntu (канонічний README)
+### 1. Перевірити сесію (перше, до всього іншого)
 
-### SITL-контейнер
-- Docker Engine + плагін `docker compose`; користувач у групі `docker`.
-- Проброшені порти: TCP `5760`, UDP `14550` — через них хостові процеси бачать SITL.
+```bash
+echo $XDG_SESSION_TYPE
+```
 
-### keyboard-адаптер
-- Python 3.12 + `uv`. Адаптер має власний `pyproject.toml`, ставиться `uv sync` окремо від парсера.
-- **[не перевірено] Головна пастка — `pynput` під Wayland.** Ubuntu 22.04+ типово використовує
-  Wayland, де глобальне перехоплення клавіш `pynput` не працює нормально (бібліотека розрахована
-  на X11). Варіанти: логінитись у сесію «Ubuntu on Xorg», або ставити `python3-xlib` і перевіряти.
-  Це відоме обмеження бібліотеки, не висновок із нашого коду. **Перевірити першим** — саме цей
-  пункт може зламати сценарій, що оцінюється (рев'юєр відтворює стенд за README).
-- **[не перевірено]** Може знадобитись доступ до `/dev/input` (група `input`), якщо піде
-  evdev-шлях замість X11.
+Якщо `wayland` — дивись розділ «keyboard-адаптер під Wayland» нижче. Це не блокер (є `evdev`),
+але впливає на вибір бібліотеки клавіатури.
 
-### GCS
-**Основний варіант — MAVProxy** (GCS + мапа в одному):
-- `pip install MAVProxy` (або через `uv tool install mavproxy`).
-- Запуск: `mavproxy.py --master=tcp:127.0.0.1:5760 --map --console`.
-- Мінімум системних залежностей, без AppImage і без вимог до 3D.
+### 2. Системні залежності
 
-**Опційні альтернативи** (не потрібні, якщо взято MAVProxy):
-- QGroundControl — AppImage; **[не перевірено]** потребує `libfuse2` на свіжих Ubuntu, користувач
-  у групі `dialout`, вимкнений `ModemManager`.
-- FlightGear (`apt install flightgear`) — 3D-рендер для ефектнішого запису.
-  **[не перевірено]** звірити версію з тією, що очікує ArduPilot-скрипт запуску.
+```bash
+sudo apt update
+sudo apt install -y git python3-pip python3-dev python3-venv \
+  build-essential libtool libxml2-dev libxslt1-dev python3-matplotlib \
+  wireguard-tools rsync openssh-client git-lfs
+```
+
+### 3. SITL: клон і збірка
+
+```bash
+git clone --recurse-submodules -b Plane-4.6 https://github.com/ArduPilot/ardupilot.git
+cd ardupilot
+Tools/environment_install/install-prereqs-ubuntu.sh -y
+source ~/.profile
+```
+
+`install-prereqs-ubuntu.sh` сам ставить `MAVProxy` і Python-залежності — окремо не потрібно.
+
+### 4. Перший запуск SITL + MAVProxy (генерація `.bin`/`.tlog`)
+
+```bash
+cd ~/ardupilot/ArduPlane
+sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map
+```
+
+`sim_vehicle.py` компілює (лише перший раз) і піднімає `arduplane`, сам стартує MAVProxy
+з `--console --map`, роздає UDP `14550`. Тестовий політ у консолі MAVProxy:
+
+```
+STABILIZE
+arm throttle
+mode TAKEOFF
+```
+
+Завершення: `disarm`, потім `Ctrl+C` у терміналі `sim_vehicle.py`.
+
+`.BIN` (DataFlash) пише сам SITL у `ArduPlane/logs/`; `.tlog` пише MAVProxy там, де його
+запущено. **[не перевірено]** мапі MAVProxy для тайлів потрібен інтернет при першому
+запуску (кешує в `~/.tilecache`) — без мережі буде порожня сітка замість мапи; `--console`
+працює офлайн.
+
+### 5. `uv` і keyboard-адаптер
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.profile
+cd tools/keyboard_adapter
+uv sync
+uv run keyboard-adapter --connect udp:127.0.0.1:14550
+```
+
+#### keyboard-адаптер під Wayland
+
+Ubuntu 22.04+ типово Wayland, де `pynput` (X11 global-grab) не працює — це архітектурне
+рішення Wayland про ізоляцію застосунків, не недогляд бібліотеки. Два варіанти без зміни
+логіки осей (`AxisState` від бібліотеки клавіатури не залежить):
+
+- **Найпростіше — сесія Xorg.** На екрані логіну (шестерня біля кнопки Sign In) обрати
+  «Ubuntu on Xorg». Нуль коду, `pynput` працює як задумано.
+- **`evdev` — працює на Xorg і Wayland однаково**, бо читає клавіші напряму з ядра
+  (`/dev/input/eventN`), нижче будь-якого дисплейного сервера. Ціна: користувач у групі
+  `input` (`sudo usermod -aG input $USER`, релогін), і треба знайти пристрій клавіатури
+  (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
+  коди з пристрою — спрацює навіть без фокуса на потрібному вікні (для нашого сценарію це
+  плюс, ближче до поведінки реального джойстика).
+
+  **Рекомендація за підтвердженого Wayland: `evdev`**, щоб не змінювати сесію логіну
+  щоразу. Потребує окремого I/O-бекенда в `tools/keyboard_adapter` (`keyboard.py` описаний
+  через `Protocol` саме для такої заміни — чиста логіка осей і тести не зміняться).
+  **[не реалізовано]** — наразі в коді є лише `pynput`-бекенд.
+
+- **[не перевірено]** Може знадобитись доступ до `/dev/input` навіть для `pynput`, якщо
+  бібліотека сама піде evdev-шляхом на Wayland (деякі збірки так роблять).
 
 ### Доставка логів і решта
-- `wireguard-tools`, `rsync`, `openssh-client`.
+
+- `wireguard-tools`, `rsync`, `openssh-client` — уже в кроці 2.
 - `git-lfs` — у репо вже налаштований; без нього `.bin`-логи не витягнуться з клону.
 
 ## macOS (README.mac.md, не оцінюється)
 
-- Docker Desktop замість Docker Engine.
-- `uv` через brew.
-- MAVProxy через `uv tool install mavproxy` (основний варіант, як і на Ubuntu); QGroundControl
-  `.dmg` або FlightGear — опційно, див. таблицю ролей вище.
-- **`pynput` вимагає дозволу Accessibility** (System Settings → Privacy & Security →
-  Accessibility) для термінала/IDE, інакше клавіші не приходять **мовчки**, без помилки.
-  Саме тому логіка осей винесена в чистий модуль без pynput — тести проходять без цього дозволу.
-- WireGuard — застосунок з App Store або `brew install wireguard-tools`.
+Стенд на Mac не запускається — SITL/MAVProxy/адаптер живуть лише в Ubuntu VM. Mac лишається
+для розробки `parser`/`web`:
+
+- `uv` через brew, Node.
+- Docker (Desktop) — лише для збірки образів `parser`/`web` під VPS (`--platform linux/amd64`).
+- WireGuard — не потрібен на Mac у фінальній схемі (тунель між VM і VPS).
 
 ## Порядок перевірки на реальному стенді
 
-1. `pynput` під Wayland/Xorg (єдиний пункт з реальним ризиком зламати здачу).
+1. `$XDG_SESSION_TYPE` → вибір `pynput`+Xorg чи `evdev` для адаптера (реальний ризик зламати
+   сценарій, що оцінюється).
 2. MAVProxy бачить SITL по TCP `5760`, `--map` показує рух апарата.
-3. Решта — рутинна установка пакетів.
-4. Лише якщо вирішено брати FlightGear: 3D-картинка реально рухається з прийнятним fps у VM.
+3. Адаптер реально рухає стіки в SITL (spring-return видно на графіку RCIN).
+4. Решта — рутинна установка пакетів.
+5. Лише якщо вирішено брати FlightGear: 3D-картинка реально рухається з прийнятним fps.
