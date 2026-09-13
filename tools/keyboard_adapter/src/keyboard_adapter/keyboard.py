@@ -7,6 +7,15 @@ pynput імпортується всередині `start()`, а не на рі�
 from __future__ import annotations
 
 import threading
+from typing import Optional, Protocol
+
+
+class Listener(Protocol):
+    """Мінімум, що ми використовуємо від `pynput.keyboard.Listener`."""
+
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
 
 
 class KeyboardSource:
@@ -14,33 +23,33 @@ class KeyboardSource:
 
     def __init__(self) -> None:
         self._pressed: set[str] = set()
-        self._lock = threading.Lock()
-        self._listener = None
+        self._lock: threading.Lock = threading.Lock()
+        self._listener: Optional[Listener] = None
 
     # --- нормалізація подій pynput ---------------------------------------
     @staticmethod
-    def normalize(key) -> str | None:
-        char = getattr(key, "char", None)
-        if char:
+    def normalize(key: object) -> Optional[str]:
+        char: object = getattr(key, "char", None)
+        if isinstance(char, str) and char:
             return char.lower()
-        name = getattr(key, "name", None)
-        if not name:
+        raw: object = getattr(key, "name", None)
+        if not isinstance(raw, str) or not raw:
             return None
-        name = name.lower()
+        name = raw.lower()
         if name.startswith("shift"):
             return "shift"
         if name.startswith("ctrl"):
             return "ctrl"
         return name
 
-    def press(self, key) -> None:
+    def press(self, key: object) -> None:
         name = self.normalize(key)
         if name is None:
             return
         with self._lock:
             self._pressed.add(name)
 
-    def release(self, key) -> None:
+    def release(self, key: object) -> None:
         name = self.normalize(key)
         if name is None:
             return
@@ -55,10 +64,11 @@ class KeyboardSource:
     def start(self) -> "KeyboardSource":
         from pynput import keyboard as pynput_keyboard  # локальний імпорт — див. docstring
 
-        self._listener = pynput_keyboard.Listener(
+        listener: Listener = pynput_keyboard.Listener(
             on_press=self.press, on_release=self.release
         )
-        self._listener.start()
+        self._listener = listener
+        listener.start()
         return self
 
     def stop(self) -> None:

@@ -12,7 +12,7 @@ dependencies = [
 keyboard-adapter = "keyboard_adapter.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "mypy>=1.11"]
 
 [build-system]
 requires = ["hatchling"]
@@ -23,3 +23,14 @@ packages = ["src/keyboard_adapter"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src/keyboard_adapter", "tests"]
+mypy_path = ["src", "tests"]
+
+# pymavlink і pynput не постачають type stubs — точково, не глобально
+[[tool.mypy.overrides]]
+module = ["pymavlink.*", "pynput.*"]
+ignore_missing_imports = true

@@ -16,7 +16,7 @@ RATE = 2000.0
 
 # 22, 23
 @pytest.mark.parametrize("duration, expected", [(1.0, 20), (0.5, 10), (0.05, 1), (2.0, 40)])
-def test_loop_sends_at_fixed_rate_for_duration(duration, expected):
+def test_loop_sends_at_fixed_rate_for_duration(duration: float, expected: int) -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys(["d"])
 
@@ -28,7 +28,7 @@ def test_loop_sends_at_fixed_rate_for_duration(duration, expected):
 
 
 # 22
-def test_loop_advances_clock_by_exactly_the_duration():
+def test_loop_advances_clock_by_exactly_the_duration() -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
 
@@ -40,7 +40,7 @@ def test_loop_advances_clock_by_exactly_the_duration():
 
 
 # 24
-def test_loop_keeps_sending_when_no_key_is_pressed():
+def test_loop_keeps_sending_when_no_key_is_pressed() -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
 
@@ -52,7 +52,7 @@ def test_loop_keeps_sending_when_no_key_is_pressed():
 
 
 # 24
-def test_loop_with_no_key_pressed_sends_only_neutral_packets():
+def test_loop_with_no_key_pressed_sends_only_neutral_packets() -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
 
@@ -64,7 +64,7 @@ def test_loop_with_no_key_pressed_sends_only_neutral_packets():
 
 
 # 22
-def test_loop_polls_keyboard_once_per_packet():
+def test_loop_polls_keyboard_once_per_packet() -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys(["w"])
 
@@ -76,7 +76,7 @@ def test_loop_polls_keyboard_once_per_packet():
 
 
 # 25
-def test_send_manual_control_maps_axes_to_mavlink_fields():
+def test_send_manual_control_maps_axes_to_mavlink_fields() -> None:
     # Arrange
     mav = FakeMav()
     values = {"pitch": 100.0, "roll": -200.0, "throttle": 300.4, "yaw": -400.9}
@@ -89,7 +89,7 @@ def test_send_manual_control_maps_axes_to_mavlink_fields():
 
 
 # 26
-def test_loop_ramps_throttle_into_packets_without_spring_return():
+def test_loop_ramps_throttle_into_packets_without_spring_return() -> None:
     # Arrange
     mav, clock = FakeMav(), FakeClock()
     state = AxisState(rate=RATE)
@@ -103,7 +103,7 @@ def test_loop_ramps_throttle_into_packets_without_spring_return():
 
 
 # 25
-def test_loop_last_packet_reflects_full_deflection_on_held_key():
+def test_loop_last_packet_reflects_full_deflection_on_held_key() -> None:
     # Arrange
     mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys(["d"])
 

@@ -10,16 +10,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping
+from typing import Final, Iterable, Mapping
 
-RANGE = 1000.0
-DEFAULT_RATE = 2000.0  # одиниць/с: 0 → 1000 за 0.5 с
+RANGE: Final[float] = 1000.0
+DEFAULT_RATE: Final[float] = 2000.0  # одиниць/с: 0 → 1000 за 0.5 с
 
-AXES = ("roll", "pitch", "yaw", "throttle")
-SPRING_AXES = ("roll", "pitch", "yaw")
+AXES: Final[tuple[str, ...]] = ("roll", "pitch", "yaw", "throttle")
+SPRING_AXES: Final[tuple[str, ...]] = ("roll", "pitch", "yaw")
 
 #: клавіша → (вісь, знак)
-KEYMAP: dict[str, tuple[str, int]] = {
+KEYMAP: Final[dict[str, tuple[str, int]]] = {
     "w": ("pitch", +1),
     "s": ("pitch", -1),
     "d": ("roll", +1),

@@ -56,3 +56,9 @@ src/keyboard_adapter/
 ```
 
 Тести: `uv run pytest`. Сценарії та граничні значення — `TEST-PLAN.md`.
+
+Типи: `uv run mypy` — strict-режим на `src/` і `tests/`. `mav`/`clock`/`keys_source`
+описані протоколами (`ManualControlSender`, `Clock`, `KeysSource`), а не `Any`;
+тестові фейки структурно їм відповідають, що mypy перевіряє статично.
+`ignore_missing_imports` увімкнено точково лише для `pymavlink.*` і `pynput.*`
+(вони не постачають stubs).

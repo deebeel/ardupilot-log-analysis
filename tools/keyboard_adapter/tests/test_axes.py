@@ -11,7 +11,7 @@ RATE = 2000.0  # дефолт: 0 → 1000 за 0.5 с
 
 
 # 1
-def test_idle_state_without_keys_stays_at_zero():
+def test_idle_state_without_keys_stays_at_zero() -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -23,7 +23,7 @@ def test_idle_state_without_keys_stays_at_zero():
 
 
 # 2
-def test_holding_key_exactly_to_full_range_reaches_limit():
+def test_holding_key_exactly_to_full_range_reaches_limit() -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -39,7 +39,7 @@ def test_holding_key_exactly_to_full_range_reaches_limit():
     "key, axis, expected",
     [("d", "roll", RANGE), ("a", "roll", -RANGE), ("w", "pitch", RANGE), ("s", "pitch", -RANGE)],
 )
-def test_holding_key_past_full_range_is_clipped(key, axis, expected):
+def test_holding_key_past_full_range_is_clipped(key: str, axis: str, expected: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -51,7 +51,7 @@ def test_holding_key_past_full_range_is_clipped(key, axis, expected):
 
 
 # 4
-def test_release_from_max_decreases_by_one_rate_step():
+def test_release_from_max_decreases_by_one_rate_step() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=10)
@@ -64,7 +64,7 @@ def test_release_from_max_decreases_by_one_rate_step():
 
 
 # 4
-def test_release_from_max_returns_to_zero_in_expected_step_count():
+def test_release_from_max_returns_to_zero_in_expected_step_count() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=10)
@@ -78,7 +78,7 @@ def test_release_from_max_returns_to_zero_in_expected_step_count():
 
 # 5, 6
 @pytest.mark.parametrize("key, expected_sign_value", [("d", RANGE), ("a", -RANGE)])
-def test_spring_return_with_huge_dt_lands_exactly_on_zero(key, expected_sign_value):
+def test_spring_return_with_huge_dt_lands_exactly_on_zero(key: str, expected_sign_value: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.5, [key], n=1)  # roll = expected_sign_value
@@ -91,7 +91,7 @@ def test_spring_return_with_huge_dt_lands_exactly_on_zero(key, expected_sign_val
 
 
 # 7
-def test_opposite_keys_held_together_spring_return_toward_zero():
+def test_opposite_keys_held_together_spring_return_toward_zero() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=10)
@@ -104,7 +104,7 @@ def test_opposite_keys_held_together_spring_return_toward_zero():
 
 
 # 8
-def test_opposite_keys_at_zero_keep_axis_at_zero():
+def test_opposite_keys_at_zero_keep_axis_at_zero() -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -117,7 +117,7 @@ def test_opposite_keys_at_zero_keep_axis_at_zero():
 
 # 9
 @pytest.mark.parametrize("keys", [[], ["d"]])
-def test_zero_dt_leaves_value_unchanged(keys):
+def test_zero_dt_leaves_value_unchanged(keys: list[str]) -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=4)  # roll = 400
@@ -132,7 +132,7 @@ def test_zero_dt_leaves_value_unchanged(keys):
 
 # 10
 @pytest.mark.parametrize("dt", [-0.05, -10.0])
-def test_negative_dt_leaves_value_unchanged(dt):
+def test_negative_dt_leaves_value_unchanged(dt: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=4)
@@ -146,7 +146,7 @@ def test_negative_dt_leaves_value_unchanged(dt):
 
 
 # 11
-def test_absurdly_large_dt_while_pressed_is_clipped_to_range():
+def test_absurdly_large_dt_while_pressed_is_clipped_to_range() -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -158,7 +158,7 @@ def test_absurdly_large_dt_while_pressed_is_clipped_to_range():
 
 
 # 12
-def test_direction_change_without_release_crosses_zero():
+def test_direction_change_without_release_crosses_zero() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=10)  # roll = +1000
@@ -171,7 +171,7 @@ def test_direction_change_without_release_crosses_zero():
 
 
 # 13
-def test_press_release_press_resumes_from_current_value():
+def test_press_release_press_resumes_from_current_value() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["d"], n=6)  # 600
@@ -186,7 +186,7 @@ def test_press_release_press_resumes_from_current_value():
 
 # 14, 15
 @pytest.mark.parametrize("key, expected", [("shift", 500.0), ("ctrl", -500.0)])
-def test_throttle_keys_move_throttle_in_expected_direction(key, expected):
+def test_throttle_keys_move_throttle_in_expected_direction(key: str, expected: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -198,7 +198,7 @@ def test_throttle_keys_move_throttle_in_expected_direction(key, expected):
 
 
 # 16
-def test_throttle_holds_value_after_release():
+def test_throttle_holds_value_after_release() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["shift"], n=5)  # 500
@@ -212,7 +212,7 @@ def test_throttle_holds_value_after_release():
 
 # 17
 @pytest.mark.parametrize("key, expected", [("shift", RANGE), ("ctrl", -RANGE)])
-def test_throttle_is_clipped_to_range(key, expected):
+def test_throttle_is_clipped_to_range(key: str, expected: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -224,7 +224,7 @@ def test_throttle_is_clipped_to_range(key, expected):
 
 
 # 18
-def test_throttle_with_both_keys_held_holds_value():
+def test_throttle_with_both_keys_held_holds_value() -> None:
     # Arrange
     state = AxisState(rate=RATE)
     advance(state, 0.05, ["shift"], n=5)  # 500
@@ -250,7 +250,7 @@ def test_throttle_with_both_keys_held_holds_value():
         ("ctrl", "throttle"),
     ],
 )
-def test_key_moves_only_its_own_axis(key, axis):
+def test_key_moves_only_its_own_axis(key: str, axis: str) -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -262,7 +262,7 @@ def test_key_moves_only_its_own_axis(key, axis):
 
 
 # 20
-def test_unknown_key_moves_nothing():
+def test_unknown_key_moves_nothing() -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -275,7 +275,7 @@ def test_unknown_key_moves_nothing():
 
 # 21
 @pytest.mark.parametrize("key", ["D", "d"])
-def test_key_case_is_ignored(key):
+def test_key_case_is_ignored(key: str) -> None:
     # Arrange
     state = AxisState(rate=RATE)
 
@@ -287,7 +287,7 @@ def test_key_case_is_ignored(key):
 
 
 # 7 (рівень directions)
-def test_directions_cancels_opposite_keys():
+def test_directions_cancels_opposite_keys() -> None:
     # Arrange
     keys = ["a", "d"]
 

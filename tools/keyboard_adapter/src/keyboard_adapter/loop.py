@@ -1,27 +1,46 @@
 """Цикл фіксованої частоти + формування MANUAL_CONTROL.
 
-Ні pynput, ні pymavlink тут не імпортуються: `mav`, `keys_source` і `clock` —
-duck-typed залежності, тому цикл тестується фейками без мережі й реального часу.
+Ні pynput, ні pymavlink тут не імпортуються: `mav`, `keys_source` і `clock` описані
+структурними протоколами, тому цикл тестується фейками без мережі й реального часу.
 """
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, Mapping, Protocol
+from typing import Final, Iterable, Mapping, Optional, Protocol, runtime_checkable
 
-from .axes import AxisState, DEFAULT_RATE
+from .axes import DEFAULT_RATE, AxisState
 
-DEFAULT_HZ = 20.0
+DEFAULT_HZ: Final[float] = 20.0
 
 
+@runtime_checkable
+class ManualControlSender(Protocol):
+    """Те, що вміє `conn.mav` у pymavlink — рівно один потрібний нам метод."""
+
+    def manual_control_send(
+        self, target: int, x: int, y: int, z: int, r: int, buttons: int
+    ) -> None: ...
+
+
+@runtime_checkable
 class Clock(Protocol):
     def monotonic(self) -> float: ...
+
     def sleep(self, seconds: float) -> None: ...
 
 
-def send_manual_control(mav, values: Mapping[str, float], target: int = 0) -> None:
+@runtime_checkable
+class KeysSource(Protocol):
+    """Викликається раз на пакет і повертає поточний набір натиснутих клавіш."""
+
+    def __call__(self) -> Iterable[str]: ...
+
+
+def send_manual_control(
+    mav: ManualControlSender, values: Mapping[str, float], target: int = 0
+) -> None:
     """Відправити один MANUAL_CONTROL.
 
-    `mav` — об'єкт із методом `manual_control_send` (у pymavlink це `conn.mav`).
     Відповідність осей MAVLink: x=pitch, y=roll, z=throttle, r=yaw.
     """
     mav.manual_control_send(
@@ -35,12 +54,12 @@ def send_manual_control(mav, values: Mapping[str, float], target: int = 0) -> No
 
 
 def run_loop(
-    mav,
-    keys_source: Callable[[], Iterable[str]],
+    mav: ManualControlSender,
+    keys_source: KeysSource,
     clock: Clock,
     hz: float = DEFAULT_HZ,
-    duration: float | None = None,
-    state: AxisState | None = None,
+    duration: Optional[float] = None,
+    state: Optional[AxisState] = None,
     rate: float = DEFAULT_RATE,
     target: int = 0,
 ) -> int:
