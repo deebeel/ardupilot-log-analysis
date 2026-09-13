@@ -9,7 +9,7 @@
     "preview": "node ./dist/server/entry.mjs",
     "lint": "eslint . && tsc --noEmit -p tsconfig.eslint.json",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.5",
