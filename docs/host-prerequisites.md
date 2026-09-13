@@ -41,9 +41,14 @@ sudo apt install -y git python3-pip python3-dev python3-venv \
 
 ### 3. SITL: клон і збірка
 
+`Plane-4.6` — це не гілка, а серія тегів релізів (`Plane-4.6.0`, `Plane-4.6.1`, …). Клонувати
+й перейти на останній `4.6.x`:
+
 ```bash
-git clone --recurse-submodules -b Plane-4.6 https://github.com/ArduPilot/ardupilot.git
+git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
 cd ardupilot
+git checkout Plane-4.6.3   # звірити реальний останній тег: git tag -l "Plane-4.6.*" --sort=-v:refname | head -1
+git submodule update --init --recursive
 Tools/environment_install/install-prereqs-ubuntu.sh -y
 source ~/.profile
 ```

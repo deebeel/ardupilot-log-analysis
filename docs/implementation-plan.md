@@ -20,7 +20,7 @@ ardupilot_log_analysis/
 ├── deploy/
 │   ├── compose/                 # docker-compose.yml + .env.example + Caddyfile (§5)
 │   ├── wireguard/               # конфіги peer-ів (§3)
-│   └── ansible/                 # playbook-и (§7)
+│   └── deploy.sh, provision.sh  # shell-скрипти деплою (§7)
 └── data/                        # gitignored: inbox/, results/ для локального запуску
 ```
 
@@ -192,7 +192,7 @@ CMD ["node", "./dist/server/entry.mjs"]
 
 - VPS = сервер (`10.10.0.1/24`, UDP 51820, публічний IP), SITL-хост = клієнт (`10.10.0.2/24`).
 - `AllowedIPs = 10.10.0.0/24` на клієнті — тунелюємо лише службову мережу, не весь трафік.
-- WireGuard на VPS ставиться Ansible-ом **на хост**, не в контейнер — простіше з ключами
+- WireGuard на VPS ставиться `provision.sh` **на хост**, не в контейнер — простіше з ключами
   й ip-forward, і стек у compose від нього не залежить.
 - Локальна перевірка до отримання VPS: дві Ubuntu-VM (або два docker-нетворки) з тими ж
   конфігами — підтвердити, що `rsync` через тунель кладе файл у `inbox/` і парсер спрацьовує.
@@ -259,34 +259,44 @@ build                    # buildx --platform linux/amd64, обидва обра�
 save                     # docker save | gzip → dist/images.tar.gz
 test                     # pytest (parser) + npm test (web)
 parse FILE=...           # разовий прогін воркера на файлі, без watcher
-deploy                   # ansible-playbook deploy/ansible/site.yml
+deploy                   # deploy/deploy.sh
 ```
 
 ---
 
-## 7. Ansible
+## 7. Деплой на VPS — shell, не Ansible
+
+Тікет дозволяє "docker-compose / Ansible / shell — на вибір". Для одного VPS і
+одноразового прогону (без continuous config drift, без багатьох хостів) Ansible —
+оверінженірінг: його головна цінність (ідемпотентність, керування станом флоту машин)
+тут не окупається, а рев'юєру довелось би читати YAML/Jinja замість лінійного bash.
 
 ```
-deploy/ansible/
-├── inventory.ini            # [vps] <ip> ansible_user=...
-├── site.yml
-├── group_vars/vps.yml       # domain, data_dir, tag
-└── roles/
-    ├── base/        # apt, timezone, ufw (22, 80, 443, 51820/udp)
-    ├── docker/      # docker-ce + compose plugin (потребує інтернет на VPS — див. §8)
-    ├── wireguard/   # wg0.conf з шаблону, ip_forward, systemd enable
-    └── app/         # головна роль
+deploy/
+├── deploy.sh                 # головний скрипт (нижче)
+├── provision.sh              # одноразово: apt, ufw, WireGuard-сервер на хості VPS
+├── compose/
+│   ├── docker-compose.yml
+│   ├── .env.example
+│   └── Caddyfile
+└── wireguard/
+    └── wg0.conf.example
 ```
 
-Роль `app` — точний порядок:
-1. `file:` створити `/srv/app/{data/inbox,data/results}`, права під UID 1000.
-2. `copy:` `dist/images.tar.gz` → `/srv/app/images.tar.gz` (з `ansible_check_mode`-safe перевіркою checksum, щоб не заливати повторно).
-3. `command: docker load -i /srv/app/images.tar.gz` — офлайн, без Docker Hub.
-4. `template:` `docker-compose.yml`, `.env`, `Caddyfile`.
-5. `command: docker compose up -d` (**без `--build`**).
-6. `uri:` health-check `https://{{ domain }}/` → очікувати 200.
+`provision.sh` (запускається вручну один раз на чистому VPS, `ssh vps 'bash -s' < provision.sh`):
+1. `apt install` — Docker Engine + compose plugin, `wireguard-tools`, `ufw`.
+2. `ufw allow 22,80,443,51820/udp` — далі `ufw enable`.
+3. Згенерувати ключі WireGuard, покласти `/etc/wireguard/wg0.conf` (з шаблону + підставленим публічним ключем клієнта), `systemctl enable --now wg-quick@wg0`.
 
-Окремий `playbooks/fetch-logs.yml` не потрібен — логи штовхає rsync з SITL-хоста.
+`deploy.sh` (запускається з робочої машини, ідемпотентний — повторний запуск безпечний):
+1. `mkdir -p /srv/app/{data/inbox,data/results}` на VPS через `ssh` (права під UID 1000).
+2. `scp`/`rsync` `dist/images.tar.gz` (з `sha256sum`-порівнянням — не заливати повторно, якщо збіглося) + `deploy/compose/*` на VPS.
+3. `ssh vps 'docker load -i /srv/app/images.tar.gz'` — офлайн, без Docker Hub.
+4. `ssh vps 'docker compose -f /srv/app/docker-compose.yml up -d'` (**без `--build`**, образи вже в daemon).
+5. `curl -sf https://$DOMAIN/` — health-check, ненульовий вихід зупиняє скрипт (`set -euo pipefail`).
+
+Логи `.bin`/`.tlog` штовхає `rsync` із SITL-хоста напряму — окремого скрипту-фетчера не треба
+(§3 вище).
 
 ---
 
@@ -307,5 +317,5 @@ deploy/ansible/
 3. SITL нативно у Ubuntu VM (`sim_vehicle.py`) + `keyboard_adapter` (§4), перші ручні польоти.
 4. compose + Caddy локально (§5), Makefile (§6).
 5. WireGuard між двома локальними VM (§3).
-6. Ansible на реальний VPS (§7), фінальний прогін строго за README.
+6. `deploy.sh`/`provision.sh` на реальний VPS (§7), фінальний прогін строго за README.
 7. 3+ залікових польоти за єдиною програмою + екранні записи.

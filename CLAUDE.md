@@ -2,7 +2,7 @@
 - `assets/RND-254_ticket.pdf` — тестове завдання.
 - `assets/flight-01_2026-09-11.bin/.tlog` — тестовий комплект логів (DataFlash + MAVLink tlog) одного профілю керування. Замовник обіцяв ще файли з іншими профілями — іменувати `flight-NN_<дата>.bin`/`.tlog`.
 - `worktrees/` — місце для git-worktree (у `.gitignore`). По одному на сервіс, гілка `feat/<service>`.
-- `docs/implementation-plan.md` — покроковий план реалізації (сервіси, образи, compose, Ansible).
+- `docs/implementation-plan.md` — покроковий план реалізації (сервіси, образи, compose, деплой).
 
 **Стек**
 - Парсер/аналізатор — Python + `pymavlink` (`DFReader` для `.bin`), `uv` (`pyproject.toml`+`uv.lock`).
@@ -22,18 +22,18 @@
 
 **Розгортання**
 - docker-compose (parser, web, caddy) — однаковий локально й на VPS, різниться лише конфіг/env (WireGuard-peer, домен).
-- Ansible оркеструє розгортання compose-стеку на чистому VPS (Docker, конфіги, `docker-compose up -d`) — не заміна compose.
+- **Розгортання на VPS — `deploy/deploy.sh` (shell), не Ansible.** Тікет прямо дозволяє "docker-compose / Ansible / shell — на вибір"; для одного VPS і одноразового прогону (без continuous config drift, без десятків хостів) Ansible-плейбуки — оверінженірінг: цінність Ansible (ідемпотентність, керування станом багатьох хостів) тут не окупається, а рев'юєру довелось би читати YAML/Jinja замість лінійного bash. Критерії приймання тікета оцінюють результат ("тунель піднятий", "логи потрапляють", "звіт відкривається"), не інструмент.
 - Явно не відомо, чи є на VPS вихід в інтернет за межі того, що прописано в docker-compose (WireGuard/Caddy-ACME) — вважати, що нема, і не покладатись на нього під час білду.
-- Образи не пушаться в registry і не білдяться на VPS (`docker build` тягне base-images з Docker Hub — залежність від інтернету на VPS). Замість цього: локально `docker compose build` → `docker save | gzip` → Ansible копіює tar.gz + compose/конфіги на VPS (SSH/rsync) → на VPS `docker load` (офлайн) → `docker compose up -d` (без `--build`, образи вже в daemon).
+- Образи не пушаться в registry і не білдяться на VPS (`docker build` тягне base-images з Docker Hub — залежність від інтернету на VPS). Замість цього: локально `docker compose build` → `docker save | gzip` → `deploy/deploy.sh` копіює tar.gz + compose/конфіги на VPS (`rsync`/`scp`) → на VPS `docker load` (офлайн) → `docker compose up -d` (без `--build`, образи вже в daemon).
 - Dockerfile'и (parser, web) — multi-stage, щоб фінальний образ був без білд-залежностей (uv/npm), тільки рантайм-артефакти.
 - **Архітектура**: якщо білдити на Mac (Apple Silicon = `arm64`), а VPS — типово `amd64`, образ іншої архітектури просто не запуститься ("exec format error"). Явно білдити під ціль: `docker buildx build --platform linux/amd64 ...` (звірити реальну архітектуру VPS через `uname -m`), і хоч раз перевірити запуск під `--platform linux/amd64` (є нативні C-розширення в `pymavlink`). Стосується лише `parser`/`web` — SITL не контейнеризується, тож arm64 VM (UTM) vs amd64 VPS для нього не проблема.
 - Якщо з'ясується, що на VPS взагалі немає жодного outbound-доступу (навіть до ACME Let's Encrypt) — уточнити в замовника заздалегідь, бо без нього неможливий сам критерій "справжній HTTPS з реальним сертифікатом".
 - Caddy — reverse-proxy з авто-HTTPS.
-- Порядок: повністю зібрати й перевірити локально (SITL нативно у VM, parser, web, тестовий WireGuard між двома локальними VM) → тоді Ansible на реальний VPS/DNS/SSL, фінальний прогін строго за README.
+- Порядок: повністю зібрати й перевірити локально (SITL нативно у VM, parser, web, тестовий WireGuard між UTM-VM і локальним docker compose) → тоді `deploy.sh` на реальний VPS/DNS/SSL, фінальний прогін строго за README.
 - **SITL не контейнеризується.** Тікет дослівно: "у віртуальній машині або на bare-metal (технологію обираєш сам)" — Docker як варіант не згаданий, а VM (UTM Ubuntu) уже дає ізоляцію, другий шар нічого не додає. SITL піднімається нативно через `sim_vehicle.py` прямо в Ubuntu VM/bare-metal; GCS/візуалізатор (MAVProxy) і keyboard-adapter — там само на хості, без проброшених портів контейнера. Контейнеризація лишається лише там, де тікет її фактично вимагає — `parser`/`web` на VPS.
 - **Візуалізація — MAVProxy** (`--master=tcp:127.0.0.1:5760 --map --console`): закриває і роль GCS, і візуалізацію. Тікет 3D **не вимагає** («на твій розсуд: FlightGear, Mission Planner/QGC з картою чи інше»), тож мапи достатньо. Відпадають QGC/AppImage/`libfuse2`, FlightGear і вимога до 3D-прискорення у VM. FlightGear — опційно, лише заради ефектнішого запису.
 - Підготовка хоста (пакети, пастки Wayland/`pynput`, libfuse2 для QGC) — `docs/host-prerequisites.md`, чернетка для README.
-- Кореневий Makefile для локального запуску (`sitl-up` → `sim_vehicle.py`, `keyboard-adapter` → `uv run`); Ansible локально — оверкіл.
+- Кореневий Makefile для локального запуску (`sitl-up` → `sim_vehicle.py`, `keyboard-adapter` → `uv run`) і для деплою (`make deploy` → `deploy/deploy.sh`).
 - Логи доставляються `rsync`/`scp` через WireGuard у watched-теку парсера, не жива стрім-передача.
 - Відео польоту для здачі — поза VPS/сервісом (репозиторій/git-lfs або посилання в README).
 
