@@ -30,7 +30,9 @@
 - Якщо з'ясується, що на VPS взагалі немає жодного outbound-доступу (навіть до ACME Let's Encrypt) — уточнити в замовника заздалегідь, бо без нього неможливий сам критерій "справжній HTTPS з реальним сертифікатом".
 - Caddy — reverse-proxy з авто-HTTPS.
 - Порядок: повністю зібрати й перевірити локально (SITL, parser, web, тестовий WireGuard між двома локальними VM) → тоді Ansible на реальний VPS/DNS/SSL, фінальний прогін строго за README.
-- Контейнером ізолюється лише **SITL**. GCS/візуалізатор і keyboard-adapter — на хості, конект до SITL по проброшених MAVLink-портах (TCP `:5760`/UDP `:14550`).
+- Контейнером ізолюється лише **SITL**. GCS, візуалізатор і keyboard-adapter — на хості, конект до SITL по проброшених MAVLink-портах (TCP `:5760`/UDP `:14550`).
+- **GCS ≠ візуалізатор** — різні ролі, потрібні обидва. GCS (QGroundControl/Mission Planner/MAVProxy) — телеметрія, HUD, режими, arm. Візуалізатор (FlightGear) — зовнішній 3D-рендерер: фізику рахує SITL, FlightGear лише малює. Вимогу тікету про 3D закриває саме візуалізатор, не GCS.
+- Підготовка хоста (пакети, пастки Wayland/`pynput`, libfuse2 для QGC) — `docs/host-prerequisites.md`, чернетка для README.
 - Кореневий Makefile для локального запуску (`sitl-up`, `visualizer`, `keyboard-adapter`) — обгортки над `docker compose`/`uv run`; Ansible локально — оверкіл.
 - Логи доставляються `rsync`/`scp` через WireGuard у watched-теку парсера, не жива стрім-передача.
 - Відео польоту для здачі — поза VPS/сервісом (репозиторій/git-lfs або посилання в README).
