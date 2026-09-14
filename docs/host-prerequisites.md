@@ -30,14 +30,17 @@ echo $XDG_SESSION_TYPE
 Якщо `wayland` — дивись розділ «keyboard-адаптер під Wayland» нижче. Це не блокер (є `evdev`),
 але впливає на вибір бібліотеки клавіатури.
 
-### 2. Системні залежності
+### 2. Системні залежності + група `input`
+
+Усі кроки цього репозиторію, що потребують `sudo` (apt-пакети, група `input` для
+`evdev`-бекенду клавіатури), зібрані в один скрипт — `sudo`-пароль питається один раз:
 
 ```bash
-sudo apt update
-sudo apt install -y git python3-pip python3-dev python3-venv \
-  build-essential libtool libxml2-dev libxslt1-dev python3-matplotlib \
-  wireguard-tools rsync openssh-client git-lfs
+./tools/setup-host.sh
 ```
+
+(ArduPilot-специфічний `install-prereqs-ubuntu.sh` — крок 3 нижче, окремо, бо це вже
+власний скрипт ArduPilot після клону його репозиторію.)
 
 ### 3. SITL: клон і збірка
 
@@ -87,8 +90,8 @@ cd tools/keyboard_adapter
 uv sync
 # Xorg-сесія:
 uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend pynput
-# Wayland-сесія (рекомендовано за підтвердженого Wayland, група `input` потрібна):
-cd .. && make setup-input-group && cd tools/keyboard_adapter   # один раз, тоді релогін
+# Wayland-сесія (рекомендовано за підтвердженого Wayland, група `input` потрібна —
+# вже додана кроком 2, `./tools/setup-host.sh`):
 uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend evdev
 ```
 
@@ -102,8 +105,8 @@ Ubuntu 22.04+ типово Wayland, де `pynput` (X11 global-grab) не пра�
   «Ubuntu on Xorg». Нуль коду, `pynput` працює як задумано.
 - **`evdev` — працює на Xorg і Wayland однаково**, бо читає клавіші напряму з ядра
   (`/dev/input/eventN`), нижче будь-якого дисплейного сервера. Ціна: користувач у групі
-  `input` (`make setup-input-group`, ідемпотентно; релогін після першого запуску), і треба
-  знайти пристрій клавіатури (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
+  `input` (додається кроком 2, `./tools/setup-host.sh`; релогін після першого запуску), і
+  треба знайти пристрій клавіатури (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
   коди з пристрою — спрацює навіть без фокуса на потрібному вікні (для нашого сценарію це
   плюс, ближче до поведінки реального джойстика).
 
