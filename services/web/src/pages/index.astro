@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import FlightListPoller from '../components/FlightListPoller.astro';
+import FlightList from '../components/FlightList.tsx';
 import { listFlights } from '../lib/results.ts';
 
 // Страховка на випадок зміни `output` у конфізі.
@@ -17,12 +17,5 @@ const flights = await listFlights();
     <span class="text-xs text-slate-500" data-testid="poll-indicator">оновлюється щосекунди</span>
   </div>
 
-  <FlightListPoller flights={flights} />
+  <FlightList client:load initialFlights={flights} />
 </Base>
-
-<script>
-  // Плейн-`<script>` у шаблоні Astro відправляється тільки клієнту й ніколи не
-  // виконується під час SSR (на відміну від імпорту у frontmatter, де `htmx.org`
-  // одразу падає на серверних глобалах типу `location`).
-  import 'htmx.org';
-</script>

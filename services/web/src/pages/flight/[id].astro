@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro';
 import StickOverlayChart from '../../components/StickOverlayChart.tsx';
 import AmplitudeHistogram from '../../components/AmplitudeHistogram.tsx';
 import VerdictPanel from '../../components/VerdictPanel.tsx';
+import RenameableFlightTitle from '../../components/RenameableFlightTitle.tsx';
 import { readFlight } from '../../lib/results.ts';
 
 export const prerender = false;
@@ -28,18 +29,7 @@ if (payload === null) {
     </Base>
   ) : (
     <Base title={`Звіт — ${payload.flight.flight_id}`}>
-      <h1 class="mb-1 flex items-center gap-2 font-mono text-2xl font-semibold" data-testid="flight-title">
-        <span data-flight-name={payload.flight.flight_id}>{payload.flight.flight_id}</span>
-        <button
-          type="button"
-          data-testid="rename-flight"
-          data-rename-flight={payload.flight.flight_id}
-          aria-label="Перейменувати політ"
-          class="rounded border border-slate-700 px-2 py-0.5 text-sm text-slate-400 hover:bg-slate-800"
-        >
-          ✎
-        </button>
-      </h1>
+      <RenameableFlightTitle client:load flightId={payload.flight.flight_id} />
       <p class="mb-8 text-sm text-slate-400">
         тривалість {Math.round(payload.flight.duration_s)} с · фаз: {payload.flight.phases.length}
       </p>

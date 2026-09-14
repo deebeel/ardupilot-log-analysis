@@ -1,11 +1,12 @@
 /**
- * Сценарії (TEST-PLAN, htmx-поллінг індексної сторінки):
+ * Сценарії (TEST-PLAN, React-поллінг індексної сторінки — `fetch('/api/flights')`
+ * раз на секунду, без htmx):
  * 1. Порожня `live`-тека на старті → нічого крім порожнього стану.
  * 2. Новий JSON з'являється в теці ПІСЛЯ відкриття сторінки → картка з'являється
  *    сама, без `page.reload()`.
- * 3. Обгортка з `hx-*` атрибутами лишається на місці й після одного циклу свапу
- *    (перевіряє граничний випадок outerHTML-заміни: якщо партиал повертає розмітку
- *    БЕЗ обгортки, поллінг зупиняється на першому оновленні — тут це не так).
+ * 3. Поллінг триває довше одного тика — другий політ, доданий пізніше, теж
+ *    з'являється сам (перевіряє, що `setInterval` не зупиняється після першого
+ *    оновлення, на відміну від одноразового `setTimeout`).
  */
 import { expect, test } from '@playwright/test';
 import { addLiveFlight } from './fixtures.ts';
@@ -39,16 +40,16 @@ test('новий політ у теці з\'являється в списку �
   await expect(link).toBeVisible({ timeout: 3_000 });
 });
 
-test('поллінг-обгортка лишається на місці після циклу оновлення (не зникає після outerHTML-свапу)', async ({ page }) => {
+test('поллінг триває й після першого оновлення — другий пізніший політ теж з\'являється сам', async ({ page }) => {
   // Arrange
   await page.goto('/');
-  const poller = page.getByTestId('flight-list-poller');
-  await expect(poller).toHaveAttribute('hx-get', '/partials/flight-list');
+  const first = page.getByRole('link', { name: 'flight-triggers-poll-1' });
 
   // Act
-  addLiveFlight('flight-triggers-a-swap');
-  await expect(page.getByRole('link', { name: 'flight-triggers-a-swap' })).toBeVisible({ timeout: 3_000 });
+  addLiveFlight('flight-triggers-poll-1');
+  await expect(first).toBeVisible({ timeout: 3_000 });
+  addLiveFlight('flight-triggers-poll-2');
 
   // Assert
-  await expect(poller).toHaveAttribute('hx-get', '/partials/flight-list');
+  await expect(page.getByRole('link', { name: 'flight-triggers-poll-2' })).toBeVisible({ timeout: 3_000 });
 });
