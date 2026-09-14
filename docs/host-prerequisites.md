@@ -88,7 +88,7 @@ uv sync
 # Xorg-сесія:
 uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend pynput
 # Wayland-сесія (рекомендовано за підтвердженого Wayland, група `input` потрібна):
-sudo usermod -aG input $USER   # один раз, тоді релогін
+cd .. && make setup-input-group && cd tools/keyboard_adapter   # один раз, тоді релогін
 uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend evdev
 ```
 
@@ -102,8 +102,8 @@ Ubuntu 22.04+ типово Wayland, де `pynput` (X11 global-grab) не пра�
   «Ubuntu on Xorg». Нуль коду, `pynput` працює як задумано.
 - **`evdev` — працює на Xorg і Wayland однаково**, бо читає клавіші напряму з ядра
   (`/dev/input/eventN`), нижче будь-якого дисплейного сервера. Ціна: користувач у групі
-  `input` (`sudo usermod -aG input $USER`, релогін), і треба знайти пристрій клавіатури
-  (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
+  `input` (`make setup-input-group`, ідемпотентно; релогін після першого запуску), і треба
+  знайти пристрій клавіатури (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
   коди з пристрою — спрацює навіть без фокуса на потрібному вікні (для нашого сценарію це
   плюс, ближче до поведінки реального джойстика).
 

@@ -56,7 +56,7 @@ UDP-порту, який роздає MAVProxy. `pynput`/`evdev` свідомо 
 uv run keyboard-adapter --input-backend pynput
 
 # 2. evdev — читає /dev/input напряму, працює однаково на Xorg і Wayland.
-#    Потрібна група `input`: sudo usermod -aG input $USER && релогін.
+#    Потрібна група `input`: `make setup-input-group` з кореня репозиторію (ідемпотентно) && релогін.
 uv run keyboard-adapter --input-backend evdev
 # або з явним пристроєм, якщо автовизначення (перший з KEY_A) обрало не те:
 uv run keyboard-adapter --input-backend evdev --device /dev/input/event3
