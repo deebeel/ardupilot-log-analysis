@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { categorize, computeVerdict } from '../../src/lib/verdict.ts';
-import type { Metrics, Thresholds } from '../../src/lib/types.ts';
+import { categorize, computeVerdict, correctionsCount } from '../../src/lib/verdict.ts';
+import type { AxisValues, Metrics, Thresholds } from '../../src/lib/types.ts';
 
 const T = { good_max: 6, warn_max: 12 };
 
@@ -314,5 +314,33 @@ describe('computeVerdict — чистота функції', () => {
 
     // Assert
     expect(first).toEqual(computeVerdict(metrics, FULL_THRESHOLDS));
+  });
+});
+
+describe('correctionsCount — дискретна кількість корекцій', () => {
+  it.each([
+    ['типовий випадок', { roll: 4.1796, pitch: 3.7152, yaw: 0 }, 109.2, { roll: 8, pitch: 7, yaw: 0 }],
+    ['точно ціла кількість без округлення', { roll: 6, pitch: 0, yaw: 0 }, 60, { roll: 6, pitch: 0, yaw: 0 }],
+    ['нульова швидкість на всіх осях', { roll: 0, pitch: 0, yaw: 0 }, 90, { roll: 0, pitch: 0, yaw: 0 }],
+  ] as [string, AxisValues, number, AxisValues][])(
+    '%s',
+    (_label, correctionsPerMin, analyzedDurationS, expected) => {
+      // Arrange / Act
+      const result = correctionsCount(correctionsPerMin, analyzedDurationS);
+
+      // Assert
+      expect(result).toEqual(expected);
+    },
+  );
+
+  it.each([0, -5])('analyzedDurationS <= 0 (%s) дає нулі на всіх осях', (analyzedDurationS) => {
+    // Arrange
+    const correctionsPerMin: AxisValues = { roll: 4, pitch: 3, yaw: 2 };
+
+    // Act
+    const result = correctionsCount(correctionsPerMin, analyzedDurationS);
+
+    // Assert
+    expect(result).toEqual({ roll: 0, pitch: 0, yaw: 0 });
   });
 });

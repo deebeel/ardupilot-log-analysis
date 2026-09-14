@@ -4,11 +4,13 @@
  */
 import { useMemo, useState } from 'react';
 import type { Metrics, Threshold, Thresholds } from '../lib/types.ts';
-import { computeVerdict, verdictSummary } from '../lib/verdict.ts';
+import { computeVerdict, correctionsCount, verdictSummary } from '../lib/verdict.ts';
 
 interface Props {
   metrics: Metrics;
   defaultThresholds: Thresholds;
+  /** Тривалість проаналізованих (ручних) фаз, с — для дискретної кількості корекцій. */
+  analyzedDurationS: number;
 }
 
 const BADGE: Record<string, string> = {
@@ -35,11 +37,15 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-export default function VerdictPanel({ metrics, defaultThresholds }: Props) {
+export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurationS }: Props) {
   const [thresholds, setThresholds] = useState<Thresholds>(defaultThresholds);
 
   const result = useMemo(() => computeVerdict(metrics, thresholds), [metrics, thresholds]);
   const names = Object.keys(defaultThresholds) as (keyof Thresholds)[];
+  const counts = useMemo(
+    () => correctionsCount(metrics.corrections_per_min, analyzedDurationS),
+    [metrics.corrections_per_min, analyzedDurationS],
+  );
 
   const update = (name: keyof Thresholds, field: keyof Threshold, value: number) => {
     setThresholds((prev) => {
@@ -120,6 +126,7 @@ export default function VerdictPanel({ metrics, defaultThresholds }: Props) {
             <th className="py-1">метрика</th>
             <th className="py-1">вісь</th>
             <th className="py-1">значення</th>
+            <th className="py-1">кількість</th>
             <th className="py-1">категорія</th>
           </tr>
         </thead>
@@ -129,6 +136,11 @@ export default function VerdictPanel({ metrics, defaultThresholds }: Props) {
               <td className="py-1 font-mono text-xs">{reason.metric}</td>
               <td className="py-1 text-slate-400">{reason.axis ?? '—'}</td>
               <td className="py-1 tabular-nums">{reason.value}</td>
+              <td className="py-1 tabular-nums" data-testid={`count-${reason.metric}-${reason.axis ?? 'scalar'}`}>
+                {reason.metric === 'corrections_per_min' && reason.axis !== null
+                  ? counts[reason.axis as keyof typeof counts]
+                  : '—'}
+              </td>
               <td className={`py-1 font-medium ${CELL[reason.category]}`}>{reason.category}</td>
             </tr>
           ))}

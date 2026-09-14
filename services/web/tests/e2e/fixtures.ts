@@ -68,6 +68,7 @@ function flight(id: string, metrics: ReturnType<typeof goodMetrics>) {
   return {
     flight_id: id,
     duration_s: 200,
+    analyzed_duration_s: 200,
     phases: [
       { mode: 'FBWA', start_s: 0, duration_s: 120 },
       { mode: 'MANUAL', start_s: 120, duration_s: 80 },

@@ -50,6 +50,8 @@ export type AmplitudeHistogram = Record<Axis, Histogram>;
 export interface Flight {
   flight_id: string;
   duration_s: number;
+  /** Тривалість проаналізованих (ручних) фаз, с — база для `corrections_per_min`. */
+  analyzed_duration_s: number;
   phases: Phase[];
   metrics: Metrics;
   default_thresholds: Thresholds;

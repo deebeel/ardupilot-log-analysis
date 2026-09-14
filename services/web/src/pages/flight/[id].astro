@@ -28,8 +28,17 @@ if (payload === null) {
     </Base>
   ) : (
     <Base title={`Звіт — ${payload.flight.flight_id}`}>
-      <h1 class="mb-1 font-mono text-2xl font-semibold" data-testid="flight-title">
-        {payload.flight.flight_id}
+      <h1 class="mb-1 flex items-center gap-2 font-mono text-2xl font-semibold" data-testid="flight-title">
+        <span data-flight-name={payload.flight.flight_id}>{payload.flight.flight_id}</span>
+        <button
+          type="button"
+          data-testid="rename-flight"
+          data-rename-flight={payload.flight.flight_id}
+          aria-label="Перейменувати політ"
+          class="rounded border border-slate-700 px-2 py-0.5 text-sm text-slate-400 hover:bg-slate-800"
+        >
+          ✎
+        </button>
       </h1>
       <p class="mb-8 text-sm text-slate-400">
         тривалість {Math.round(payload.flight.duration_s)} с · фаз: {payload.flight.phases.length}
@@ -54,6 +63,7 @@ if (payload === null) {
           client:load
           metrics={payload.flight.metrics}
           defaultThresholds={payload.flight.default_thresholds}
+          analyzedDurationS={payload.flight.analyzed_duration_s}
         />
       </section>
 

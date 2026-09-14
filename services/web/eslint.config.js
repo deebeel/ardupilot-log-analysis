@@ -16,6 +16,7 @@ export default [
         document: 'readonly',
         HTMLElement: 'readonly',
         ResizeObserver: 'readonly',
+        localStorage: 'readonly',
       },
     },
     rules: {

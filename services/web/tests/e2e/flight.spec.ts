@@ -8,7 +8,7 @@ test('сторінка існуючого політу показує його f
   const title = page.getByTestId('flight-title');
 
   // Assert
-  await expect(title).toHaveText('flight-good');
+  await expect(title).toContainText('flight-good');
 });
 
 test('невалідний id у URL дає 404', async ({ request }) => {

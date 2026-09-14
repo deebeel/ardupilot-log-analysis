@@ -20,12 +20,14 @@ const { flights } = Astro.props;
     ) : (
       <ul class="grid gap-3" data-testid="flight-list">
         {flights.map((flight) => (
-          <li data-testid="flight-card" data-status={flight.status}>
+          <li data-testid="flight-card" data-status={flight.status} class="flex items-center gap-2">
             <a
               href={`/flight/${flight.flight_id}`}
-              class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3 hover:border-slate-600"
+              class="flex flex-1 items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3 hover:border-slate-600"
             >
-              <span class="font-mono">{flight.flight_id}</span>
+              <span class="font-mono" data-testid="flight-name" data-flight-name={flight.flight_id}>
+                {flight.flight_id}
+              </span>
               {flight.status === 'error' ? (
                 <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
                   помилка парсингу
@@ -34,6 +36,15 @@ const { flights } = Astro.props;
                 <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
               )}
             </a>
+            <button
+              type="button"
+              data-testid="rename-flight"
+              data-rename-flight={flight.flight_id}
+              aria-label="Перейменувати політ"
+              class="shrink-0 rounded border border-slate-700 px-2 py-2 text-xs text-slate-400 hover:bg-slate-800"
+            >
+              ✎
+            </button>
           </li>
         ))}
       </ul>

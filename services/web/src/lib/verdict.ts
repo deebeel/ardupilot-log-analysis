@@ -6,7 +6,7 @@
  * Жодного LLM, лише if/else за порогами.
  */
 
-import type { Metrics, Thresholds, Threshold } from './types.ts';
+import type { AxisValues, Metrics, Thresholds, Threshold } from './types.ts';
 
 export type Category = 'good' | 'warning' | 'bad' | 'unknown';
 
@@ -107,6 +107,29 @@ export function computeVerdict(
   );
 
   return { verdict: worst, reasons };
+}
+
+/**
+ * Дискретна кількість корекцій за проаналізований (ручний) відрізок польоту.
+ *
+ * Парсер повертає лише похідну швидкість `corrections_per_min` — сирий
+ * лічильник переходів через deadband у вихідний JSON не потрапляє. Але це
+ * зворотне обчислення точне (не оцінка): `corrections_per_min` саме дорівнює
+ * `count / (analyzed_duration_s / 60)`, тож множення відновлює цілий count.
+ */
+export function correctionsCount(
+  correctionsPerMin: AxisValues,
+  analyzedDurationS: number,
+): AxisValues {
+  if (analyzedDurationS <= 0) {
+    return { roll: 0, pitch: 0, yaw: 0 };
+  }
+  const factor = analyzedDurationS / 60;
+  return {
+    roll: Math.round(correctionsPerMin.roll * factor),
+    pitch: Math.round(correctionsPerMin.pitch * factor),
+    yaw: Math.round(correctionsPerMin.yaw * factor),
+  };
 }
 
 /** Короткий текстовий вердикт (крок 3 алгоритму) — шаблон рядка, без LLM. */

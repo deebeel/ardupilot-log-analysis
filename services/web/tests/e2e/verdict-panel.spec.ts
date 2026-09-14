@@ -89,3 +89,38 @@ test('таблиця причин показує рядок для кожної 
   // Assert
   await expect(rows).toHaveCount(13);
 });
+
+test.describe('дискретна кількість корекцій', () => {
+  // Playwright не має test.each — параметризація тут — генерація тестів у
+  // циклі на рівні модуля (ідіоматичний спосіб для Playwright), не циклом
+  // усередині тіла одного тесту.
+  const CASES: [string, number][] = [
+    ['roll', 7],
+    ['pitch', 5],
+    ['yaw', 1],
+  ];
+
+  for (const [axis, expected] of CASES) {
+    test(`колонка "кількість" для corrections_per_min/${axis}`, async ({ page }) => {
+      // Arrange
+      await page.goto('/flight/flight-good');
+
+      // Act
+      const cell = page.getByTestId(`count-corrections_per_min-${axis}`);
+
+      // Assert
+      await expect(cell).toHaveText(String(expected));
+    });
+  }
+
+  test('для метрик, відмінних від corrections_per_min, колонка порожня', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const cell = page.getByTestId('count-mean_amplitude-roll');
+
+    // Assert
+    await expect(cell).toHaveText('—');
+  });
+});
