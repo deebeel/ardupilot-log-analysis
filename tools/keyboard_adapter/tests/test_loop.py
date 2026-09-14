@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Mapping
+
 import pytest
 
 from keyboard_adapter.axes import AxisState
@@ -112,3 +114,27 @@ def test_loop_last_packet_reflects_full_deflection_on_held_key() -> None:
 
     # Assert
     assert mav.calls[-1][2] == 1000
+
+
+def test_loop_calls_on_tick_once_per_packet() -> None:
+    # Arrange
+    mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys(["w"])
+    calls: list[tuple[set[str], Mapping[str, float]]] = []
+
+    # Act
+    run_loop(mav, keys, clock, hz=20.0, duration=1.0, on_tick=lambda k, v: calls.append((k, v)))
+
+    # Assert
+    assert len(calls) == 20
+
+
+def test_loop_on_tick_receives_the_currently_pressed_keys() -> None:
+    # Arrange
+    mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys(["w"])
+    seen: list[set[str]] = []
+
+    # Act
+    run_loop(mav, keys, clock, hz=20.0, duration=0.05, on_tick=lambda k, v: seen.append(k))
+
+    # Assert
+    assert seen == [{"w"}]

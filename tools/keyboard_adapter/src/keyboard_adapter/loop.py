@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Final, Iterable, Mapping, Optional, Protocol, runtime_checkable
+from typing import Callable, Final, Iterable, Mapping, Optional, Protocol, runtime_checkable
 
 from .axes import DEFAULT_RATE, AxisState
 
@@ -62,10 +62,14 @@ def run_loop(
     state: Optional[AxisState] = None,
     rate: float = DEFAULT_RATE,
     target: int = 0,
+    on_tick: Optional[Callable[[set[str], Mapping[str, float]], None]] = None,
 ) -> int:
     """Слати MANUAL_CONTROL із частотою `hz` незалежно від подій клавіатури.
 
     `duration=None` — нескінченно. Повертає кількість відправлених пакетів.
+    `on_tick`, якщо задано, викликається щоразу після відправки пакета з
+    (поточні натиснуті клавіші, значення осей) — для живого дебаг-виводу
+    (`cli.py --debug`), без впливу на сам цикл відправки.
     """
     period = 1.0 / hz
     state = state if state is not None else AxisState(rate=rate)
@@ -76,9 +80,12 @@ def run_loop(
     sent = 0
     while total is None or sent < total:
         now = clock.monotonic()
-        values = state.step(now - prev, keys_source())
+        keys = set(keys_source())
+        values = state.step(now - prev, keys)
         prev = now
         send_manual_control(mav, values, target=target)
+        if on_tick is not None:
+            on_tick(keys, values)
         sent += 1
         clock.sleep(max(0.0, start + sent * period - clock.monotonic()))
     return sent

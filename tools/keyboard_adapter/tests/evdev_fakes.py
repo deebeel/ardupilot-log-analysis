@@ -26,16 +26,20 @@ class FakeInputDevice:
         self,
         capabilities: Dict[int, List[int]],
         events: Iterable[FakeEvent] = (),
+        raises_after: "BaseException | None" = None,
     ) -> None:
         self._capabilities: Dict[int, List[int]] = capabilities
         self._events: List[FakeEvent] = list(events)
+        self._raises_after: "BaseException | None" = raises_after
         self.closed: bool = False
 
     def capabilities(self) -> Dict[int, List[int]]:
         return self._capabilities
 
     def read_loop(self) -> Iterable[FakeEvent]:
-        return iter(self._events)
+        yield from self._events
+        if self._raises_after is not None:
+            raise self._raises_after
 
     def close(self) -> None:
         self.closed = True

@@ -119,11 +119,19 @@ class EvdevSource:
             return set(self._pressed)
 
     def _run(self, device: Device) -> None:
-        for event in device.read_loop():
-            if self._stop_event.is_set():
-                return
-            if event.type == EV_KEY:
-                self.feed(event.code, event.value)
+        """`stop()` закриває `device` конкурентно з блокуючим читанням тут — ядро
+        віддає `OSError`/`EBADF` у read, що трапилось саме через закриття. Це
+        очікуване й нешкідливе під час зупинки, тож глушиться лише коли `stop()`
+        уже викликано; будь-яка інша `OSError` (реальна відмова пристрою) — ні."""
+        try:
+            for event in device.read_loop():
+                if self._stop_event.is_set():
+                    return
+                if event.type == EV_KEY:
+                    self.feed(event.code, event.value)
+        except OSError:
+            if not self._stop_event.is_set():
+                raise
 
     def start(self) -> "EvdevSource":
         import evdev  # локальний імпорт — див. докстрінг модуля

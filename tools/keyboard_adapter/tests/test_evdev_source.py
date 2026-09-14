@@ -160,6 +160,26 @@ def test_run_ignores_non_key_events() -> None:
     assert source.snapshot() == {"w"}
 
 
+def test_run_swallows_oserror_from_read_when_stop_was_requested() -> None:
+    # Arrange
+    source = EvdevSource()
+    source._stop_event.set()
+    device = FakeInputDevice(capabilities={}, raises_after=OSError("Bad file descriptor"))
+
+    # Act / Assert (падіння вважалось би регресією — саме це й перевіряємо)
+    source._run(device)
+
+
+def test_run_reraises_oserror_from_read_when_stop_was_not_requested() -> None:
+    # Arrange
+    source = EvdevSource()
+    device = FakeInputDevice(capabilities={}, raises_after=OSError("Bad file descriptor"))
+
+    # Act / Assert
+    with pytest.raises(OSError):
+        source._run(device)
+
+
 # --- E13: EvdevSource.stop ----------------------------------------------------
 
 
