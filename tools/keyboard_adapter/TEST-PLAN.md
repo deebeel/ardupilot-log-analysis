@@ -157,3 +157,30 @@
 показує `keys=-`; щойно `evdev` бачив реальну клавішу — впало б з traceback
 замість показати результат. Пофіксовано (`" ".join(sorted(keys)) or "-"`) до
 того, як це вдарило по живому дебагу на VM.
+
+### `cli.wait_for_vehicle_heartbeat` — реальний бага, знайдений живим польотом на VM
+
+Перший справжній тестовий політ (`FBWA`, повний діапазон стіків через
+`keyboard-adapter --debug`) дав усі метрики нульовими вдруге, попри видимий
+рух стіків. `RCIN` у `.BIN` лишався на константному нейтралі (`1500/1500/
+1000/1500`) весь політ, хоча в `mav.tlog` видно `MANUAL_CONTROL` із повним
+діапазоном `x`/`y`/`z`/`r` — пакети долітали до SITL, але ArduPlane їх мовчки
+відкидав.
+
+Причина: `pymavlink.wait_heartbeat()` матчить БУДЬ-ЯКИЙ `HEARTBEAT`, включно з
+тим, що шле сам GCS (MAVProxy, `sysid=255`), не лише апарата (`sysid=1`).
+`conn.target_system` — властивість над `sysid`, яка оновлюється лише для
+heartbeat-ів, що проходять фільтр "це апарат" (`probably_vehicle_heartbeat` у
+pymavlink). Якщо перший зловлений heartbeat був від GCS — `target_system`
+лишається `0`, і оскільки цикл після цього більше нічого не читає з мережі
+(тільки шле), лишається `0` назавжди. ArduPlane (`handle_manual_control`,
+`GCS_MAVLink_Plane`) окремо звіряє `packet.target == sysid_this_mav()` і
+мовчки відкидає все з `target=0` — офіційний autotest ArduPilot для
+`MANUAL_CONTROL`/`FBWA` явно шле `target=1`, не `0` (перевірено через
+DeepWiki по `ArduPilot/ardupilot`).
+
+| # | Сценарій | Очікування |
+|---|---|---|
+| C7 | послідовні `recv_match` дають `target_system` `0, 0, 1` (GCS, GCS, апарат) | функція повертається, `conn.target_system == 1` |
+| C8 | `target_system` вже нульовий, але не `0` при вході (уже валідний) | `recv_match` не викликається жодного разу |
+| C9 | `target_system` лишається `0` попри всі спроби, дедлайн минув | `RuntimeError` |

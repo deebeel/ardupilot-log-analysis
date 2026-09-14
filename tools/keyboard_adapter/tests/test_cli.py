@@ -6,7 +6,28 @@ from __future__ import annotations
 
 import pytest
 
-from keyboard_adapter.cli import NullManualControlSender, TickPrinter, parse_args
+from keyboard_adapter.cli import (
+    NullManualControlSender,
+    TickPrinter,
+    parse_args,
+    wait_for_vehicle_heartbeat,
+)
+
+
+class FakeHeartbeatConn:
+    """Симулює послідовність значень `target_system`, що приходять з
+    послідовних `recv_match` — GCS-heartbeat-и тримають його на 0, поки не
+    прийде heartbeat апарата."""
+
+    def __init__(self, target_systems_over_time: list[int]) -> None:
+        self._queue: list[int] = list(target_systems_over_time)
+        self.target_system: int = 0
+        self.calls: int = 0
+
+    def recv_match(self, type: str, blocking: bool, timeout: float) -> None:
+        self.calls += 1
+        if self._queue:
+            self.target_system = self._queue.pop(0)
 
 
 def test_parse_args_defaults_to_no_dry_run() -> None:
@@ -82,3 +103,36 @@ def test_tick_printer_prints_again_after_the_throttle_window_elapses(
 
     # Assert
     assert "pitch=  500" in capsys.readouterr().out
+
+
+def test_wait_for_vehicle_heartbeat_ignores_gcs_heartbeats_until_vehicle_one_arrives() -> None:
+    # Arrange (перші два recv_match — GCS-и, sysid лишається 0; третій — апарат)
+    conn = FakeHeartbeatConn([0, 0, 1])
+
+    # Act
+    wait_for_vehicle_heartbeat(conn, timeout_s=10.0, now=lambda: 0.0)
+
+    # Assert
+    assert conn.target_system == 1
+
+
+def test_wait_for_vehicle_heartbeat_returns_immediately_if_already_set() -> None:
+    # Arrange
+    conn = FakeHeartbeatConn([])
+    conn.target_system = 1
+
+    # Act
+    wait_for_vehicle_heartbeat(conn, timeout_s=10.0, now=lambda: 0.0)
+
+    # Assert
+    assert conn.calls == 0
+
+
+def test_wait_for_vehicle_heartbeat_raises_when_only_gcs_heartbeats_arrive() -> None:
+    # Arrange (target_system лишається 0 назавжди — лише GCS на потоці)
+    conn = FakeHeartbeatConn([0, 0, 0, 0, 0])
+    times = iter([0.0, 0.0, 1.0, 2.0, 11.0])
+
+    # Act / Assert
+    with pytest.raises(RuntimeError):
+        wait_for_vehicle_heartbeat(conn, timeout_s=10.0, now=lambda: next(times))

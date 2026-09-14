@@ -75,6 +75,46 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+class HeartbeatWaiter(Protocol):
+    """Мінімум `pymavlink`-з'єднання, потрібний для `wait_for_vehicle_heartbeat`."""
+
+    target_system: int
+
+    def recv_match(self, type: str, blocking: bool, timeout: float) -> object: ...
+
+
+def wait_for_vehicle_heartbeat(
+    conn: HeartbeatWaiter, timeout_s: float = 10.0, now: Callable[[], float] = time.monotonic
+) -> None:
+    """Дочекатись heartbeat саме апарата, не GCS.
+
+    `pymavlink.wait_heartbeat()` матчить БУДЬ-ЯКИЙ `HEARTBEAT`, включно з тим,
+    що шле сам GCS (MAVProxy, `sysid=255`) поряд із апаратом (`sysid=1`) на
+    одному потоці. `conn.target_system` — властивість над `sysid`, яка
+    оновлюється лише для heartbeat-ів, що проходять фільтр "це апарат, не GCS"
+    (`probably_vehicle_heartbeat`). Якщо перший ЗЛОВЛЕНИЙ heartbeat був від
+    GCS, `target_system` лишається `0` — а після цього наш цикл більше нічого
+    не читає з мережі (тільки шле), тож `0` лишається назавжди.
+
+    ArduPlane сам (окремо від маршрутизації) звіряє `packet.target ==
+    sysid_this_mav()` у `handle_manual_control` і мовчки відкидає все з
+    `target=0` — офіційний autotest ArduPilot для `MANUAL_CONTROL`/`FBWA`
+    явно шле `target=1`, не `0`. Знайдено живим дебагом на VM: RCIN лишався
+    на нейтралі весь політ, попри повний діапазон значень MANUAL_CONTROL у
+    tlog — усі пакети долітали до SITL і мовчки відкидались.
+    """
+    deadline = now() + timeout_s
+    while conn.target_system == 0:
+        remaining = deadline - now()
+        if remaining <= 0:
+            raise RuntimeError(
+                "Отримано лише heartbeat від GCS (sysid=255), не від апарата — "
+                "target_system лишився 0. Перевір, що SITL підключений і "
+                "надсилає власний heartbeat."
+            )
+        conn.recv_match(type="HEARTBEAT", blocking=True, timeout=remaining)
+
+
 class TickPrinter:
     """Живий однорядковий дебаг-вивід, притримуваний за часом (не щотакту 20 Гц —
     інакше на терміналах, де `\\r` не перезаписує рядок (переносить), це виглядає
@@ -117,6 +157,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         conn = mavutil.mavlink_connection(args.connect)
         conn.wait_heartbeat()
+        wait_for_vehicle_heartbeat(conn)
         print(f"heartbeat from system {conn.target_system} component {conn.target_component}")
         mav = conn.mav
         target = conn.target_system
