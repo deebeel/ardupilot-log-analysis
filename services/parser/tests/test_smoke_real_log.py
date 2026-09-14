@@ -170,12 +170,21 @@ def test_default_thresholds_are_embedded_for_the_client(real_result: FlightResul
     assert "mean_jerk" in keys
 
 
-def test_amplitude_histogram_edges_exceed_counts_by_one(real_result: FlightResult) -> None:
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+def test_amplitude_histogram_edges_exceed_counts_by_one(real_result: FlightResult, axis: str) -> None:
     # Arrange
-    histogram = real_result.amplitude_histogram
+    histogram = real_result.amplitude_histogram[axis]
 
     # Act
-    difference = len(histogram["bin_edges"]) - len(histogram["counts"])
+    difference = len(histogram["bins"]) - len(histogram["counts"])
 
     # Assert
     assert difference == 1
+
+
+def test_amplitude_histogram_has_all_three_axes(real_result: FlightResult) -> None:
+    # Arrange / Act
+    axes = set(real_result.amplitude_histogram.keys())
+
+    # Assert
+    assert axes == {"roll", "pitch", "yaw"}

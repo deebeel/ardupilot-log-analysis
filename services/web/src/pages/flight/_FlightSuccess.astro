@@ -1,0 +1,49 @@
+---
+/**
+ * Приватний хелпер сторінки `[id].astro` — не є маршрутом (Astro ігнорує
+ * файли з `_` у `pages/`). Використовується лише тут, тому колокований, а
+ * не в `src/components/`.
+ */
+import StickOverlayChart from '../../components/StickOverlayChart.tsx';
+import AmplitudeHistogram from '../../components/AmplitudeHistogram.tsx';
+import VerdictPanel from '../../components/VerdictPanel.tsx';
+import RenameableFlightTitle from '../../components/RenameableFlightTitle.tsx';
+import type { Flight } from '../../lib/types.ts';
+
+interface Props {
+  flight: Flight;
+}
+
+const { flight } = Astro.props;
+---
+
+<RenameableFlightTitle client:load flightId={flight.flight_id} />
+<p class="mb-8 text-sm text-slate-400">
+  тривалість {Math.round(flight.duration_s)} с · фаз: {flight.phases.length}
+</p>
+
+<section class="mb-10">
+  <h2 class="mb-3 text-lg font-semibold">Стіки поверх attitude</h2>
+  <StickOverlayChart client:load series={flight.series} />
+</section>
+
+<section class="mb-10">
+  <h2 class="mb-3 text-lg font-semibold">Гістограма амплітуд</h2>
+  <AmplitudeHistogram client:load histogram={flight.amplitude_histogram} />
+</section>
+
+<section class="mb-10">
+  <h2 class="mb-3 text-lg font-semibold">Вердикт</h2>
+  <p class="mb-4 text-xs text-slate-500">
+    Пороги налаштовуються тут же — перерахунок відбувається у браузері, без запиту на сервер.
+  </p>
+  <VerdictPanel
+    client:load
+    metrics={flight.metrics}
+    defaultThresholds={flight.default_thresholds}
+    analyzedDurationS={flight.analyzed_duration_s}
+    crashed={flight.crashed}
+  />
+</section>
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-200">← до списку</a>

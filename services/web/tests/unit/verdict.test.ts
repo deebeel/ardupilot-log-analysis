@@ -4,6 +4,7 @@ import {
   computeVerdict,
   correctionsCount,
   formatMetricValue,
+  sliderStep,
   withCrashOverride,
 } from '../../src/lib/verdict.ts';
 import type { AxisValues, Metrics, Thresholds } from '../../src/lib/types.ts';
@@ -390,5 +391,26 @@ describe('formatMetricValue — дискретні метрики без хво�
 
     // Assert
     expect(result).toBe(String(value));
+  });
+});
+
+describe('sliderStep — крок порогового слайдера=1 лише для дискретних метрик', () => {
+  it.each([
+    ['corrections_per_min', 1],
+    ['reaction_latency_ms', 1],
+  ])('%s -> %s', (metric, expected) => {
+    // Arrange / Act
+    const result = sliderStep(metric);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+
+  it.each(['mean_amplitude', 'mean_jerk', 'oscillation_time_pct'])('%s -> "any"', (metric) => {
+    // Arrange / Act
+    const result = sliderStep(metric);
+
+    // Assert
+    expect(result).toBe('any');
   });
 });

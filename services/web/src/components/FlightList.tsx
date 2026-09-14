@@ -1,9 +1,10 @@
 /**
  * React-острів (`client:load`): список польотів + клієнтський поллінг раз на
- * секунду (`fetch('/api/flights')`), без htmx. Перейменування — стан
- * компонента, підхоплений з `localStorage` після монтування (щоб уникнути
- * розбіжності SSR/клієнт при першій гідратації — сервер завжди рендерить
- * `flight_id`, кастомна назва підʼїжджає одразу після mount).
+ * секунду (`fetch('/api/flights')`), без htmx. `getStoredName` синхронна
+ * (`localStorage.getItem`), тому кастомна назва береться прямо під час
+ * рендеру — без стейту-дублікату й ефекту для його завантаження; `renameTick`
+ * лише примушує React перерендерити після запису в `localStorage` (сам запис
+ * рендер не бачить сам по собі).
  */
 import { useEffect, useState } from 'react';
 import type { FlightSummary } from '../lib/types.ts';
@@ -28,18 +29,7 @@ function verdictBadge(flight: FlightSummary): Category | null {
 
 export default function FlightList({ initialFlights }: Props) {
   const [flights, setFlights] = useState<FlightSummary[]>(initialFlights);
-  const [names, setNames] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const loaded: Record<string, string> = {};
-    for (const flight of flights) {
-      const stored = getStoredName(flight.flight_id);
-      if (stored) {
-        loaded[flight.flight_id] = stored;
-      }
-    }
-    setNames(loaded);
-  }, []); // лише раз після mount — навмисно ігноруємо зміну `flights` як залежність
+  const [, forceRerender] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -58,21 +48,12 @@ export default function FlightList({ initialFlights }: Props) {
   }, []);
 
   const rename = (flightId: string): void => {
-    const next = window.prompt('Назва польоту:', names[flightId] ?? flightId);
+    const next = window.prompt('Назва польоту:', getStoredName(flightId) ?? flightId);
     if (next === null) {
       return;
     }
-    const trimmed = next.trim();
-    setStoredName(flightId, trimmed);
-    setNames((prev) => {
-      const copy = { ...prev };
-      if (trimmed) {
-        copy[flightId] = trimmed;
-      } else {
-        delete copy[flightId];
-      }
-      return copy;
-    });
+    setStoredName(flightId, next.trim());
+    forceRerender((tick) => tick + 1);
   };
 
   if (flights.length === 0) {
@@ -87,7 +68,7 @@ export default function FlightList({ initialFlights }: Props) {
     <ul className="grid gap-3" data-testid="flight-list">
       {flights.map((flight) => {
         const badge = verdictBadge(flight);
-        const displayName = names[flight.flight_id] ?? flight.flight_id;
+        const displayName = getStoredName(flight.flight_id) ?? flight.flight_id;
         return (
           <li
             key={flight.flight_id}

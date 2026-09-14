@@ -1,0 +1,21 @@
+---
+/**
+ * Приватний хелпер сторінки `[id].astro` — не є маршрутом (Astro ігнорує
+ * файли з `_` у `pages/`). Використовується лише тут, тому колокований, а
+ * не в `src/components/`.
+ */
+import type { FlightError as FlightErrorData } from '../../lib/types.ts';
+
+interface Props {
+  error: FlightErrorData;
+}
+
+const { error } = Astro.props;
+---
+
+<h1 class="mb-4 font-mono text-2xl font-semibold">{error.flight_id}</h1>
+<div data-testid="flight-error" class="rounded-lg border border-rose-500/40 bg-rose-500/10 p-6">
+  <p class="mb-2 font-semibold text-rose-300">Парсинг цього польоту впав</p>
+  <pre class="whitespace-pre-wrap break-words text-sm text-rose-200">{error.error}</pre>
+</div>
+<a href="/" class="mt-6 inline-block text-sm text-slate-400 hover:text-slate-200">← до списку</a>

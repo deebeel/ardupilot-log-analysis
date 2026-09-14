@@ -79,15 +79,30 @@ test('підняття warn_max слайдером пом’якшує верд�
   await expect(page.getByTestId('verdict')).toHaveAttribute('data-verdict', 'warning');
 });
 
-test('таблиця причин показує рядок для кожної осі кожної метрики', async ({ page }) => {
-  // Arrange
-  await page.goto('/flight/flight-good');
+test.describe('3 окремі таблиці метрик — по одній на roll/pitch/yaw', () => {
+  for (const axis of ['roll', 'pitch', 'yaw']) {
+    test(`таблиця ${axis} показує рядок для кожної метрики з розбивкою по осях`, async ({ page }) => {
+      // Arrange
+      await page.goto('/flight/flight-good');
 
-  // Act
-  const rows = page.getByTestId('reasons-table').locator('tbody tr');
+      // Act
+      const rows = page.getByTestId(`metrics-table-${axis}`).locator('tbody tr');
 
-  // Assert
-  await expect(rows).toHaveCount(13);
+      // Assert (corrections_per_min, mean_amplitude, mean_jerk, oscillation_time_pct)
+      await expect(rows).toHaveCount(4);
+    });
+  }
+
+  test('скалярна метрика (reaction_latency_ms) показана окремо, не в жодній з таблиць осей', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const scalar = page.getByTestId('scalar-metric');
+
+    // Assert
+    await expect(scalar).toContainText('reaction_latency_ms');
+  });
 });
 
 test.describe('дискретна кількість корекцій', () => {
@@ -147,5 +162,64 @@ test.describe('crashed переважає всі числові пороги', (
 
     // Assert
     await expect(badge).toHaveAttribute('data-verdict', 'crashed');
+  });
+});
+
+test.describe('крок слайдера порогів — 1 для дискретних метрик, "any" для неперервних', () => {
+  test('corrections_per_min: крок слайдера = 1', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const slider = page.getByTestId('th-corrections_per_min-good_max');
+
+    // Assert
+    await expect(slider).toHaveAttribute('step', '1');
+  });
+
+  test('reaction_latency_ms: крок слайдера = 1', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const slider = page.getByTestId('th-reaction_latency_ms-good_max');
+
+    // Assert
+    await expect(slider).toHaveAttribute('step', '1');
+  });
+
+  test('mean_amplitude (неперервна): крок слайдера = "any"', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const slider = page.getByTestId('th-mean_amplitude-good_max');
+
+    // Assert
+    await expect(slider).toHaveAttribute('step', 'any');
+  });
+});
+
+test.describe('reset-view на графіках', () => {
+  test('кнопка "скинути масштаб" присутня на обох графіках', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    const buttons = page.getByTestId('chart-reset-view');
+
+    // Assert
+    await expect(buttons).toHaveCount(2);
+  });
+
+  test('клік на "скинути масштаб" не ламає сторінку', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-good');
+
+    // Act
+    await page.getByTestId('chart-reset-view').first().click();
+
+    // Assert
+    await expect(page.getByTestId('stick-chart').locator('canvas').first()).toBeVisible();
   });
 });

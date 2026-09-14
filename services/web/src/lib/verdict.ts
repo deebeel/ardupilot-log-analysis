@@ -44,6 +44,23 @@ export const BADGE_CLASSES: Record<Category, string> = {
   unknown: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
 };
 
+/** Класи кольору тексту категорії — для клітинок таблиці метрик (не бейджа). */
+export const CELL_TEXT_CLASSES: Record<Category, string> = {
+  good: 'text-emerald-300',
+  warning: 'text-amber-300',
+  bad: 'text-rose-300',
+  crashed: 'text-red-400',
+  unknown: 'text-slate-400',
+};
+
+/** Метрики, дискретні за суттю (події/хв, мс) — крок порогового слайдера=1,
+ *  не `"any"` (немає сенсу в пороговому значенні на кшталт 4.37 корекції/хв). */
+const DISCRETE_METRICS: ReadonlySet<string> = new Set(['corrections_per_min', 'reaction_latency_ms']);
+
+export function sliderStep(metric: string): number | 'any' {
+  return DISCRETE_METRICS.has(metric) ? 1 : 'any';
+}
+
 /**
  * Крок 1 алгоритму: категоризація одного значення.
  * `value <= good_max` → good; `<= warn_max` → warning; інакше bad.

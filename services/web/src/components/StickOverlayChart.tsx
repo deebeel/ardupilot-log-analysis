@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { Series } from '../lib/types.ts';
+import { attachWheelZoom, resetXScale, type AxisBounds } from '../lib/chartZoom.ts';
 
 interface Props {
   series: Series;
@@ -10,6 +11,8 @@ interface Props {
 
 export default function StickOverlayChart({ series }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<uPlot | null>(null);
+  const boundsRef = useRef<AxisBounds>({ min: 0, max: 1 });
 
   useEffect(() => {
     const el = host.current;
@@ -23,6 +26,7 @@ export default function StickOverlayChart({ series }: Props) {
       series.att_roll,
       series.att_pitch,
     ];
+    boundsRef.current = { min: series.t[0] ?? 0, max: series.t[series.t.length - 1] ?? 1 };
     const chart = new uPlot(
       {
         width: el.clientWidth || 800,
@@ -44,16 +48,38 @@ export default function StickOverlayChart({ series }: Props) {
       data,
       el,
     );
+    chartRef.current = chart;
 
+    const detachWheelZoom = attachWheelZoom(chart, boundsRef.current);
     const resize = () => chart.setSize({ width: el.clientWidth || 800, height: 320 });
     const observer = new ResizeObserver(resize);
     observer.observe(el);
 
     return () => {
+      detachWheelZoom();
       observer.disconnect();
       chart.destroy();
+      chartRef.current = null;
     };
   }, [series]);
 
-  return <div ref={host} data-testid="stick-chart" className="w-full" />;
+  const resetView = (): void => {
+    if (chartRef.current !== null) {
+      resetXScale(chartRef.current, boundsRef.current);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="chart-reset-view"
+        onClick={resetView}
+        className="mb-2 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+      >
+        Скинути масштаб
+      </button>
+      <div ref={host} data-testid="stick-chart" className="w-full" />
+    </div>
+  );
 }

@@ -95,11 +95,14 @@ def analyze(path: str | Path, thresholds_path: str | Path = DEFAULT_THRESHOLDS) 
     flight = read_flight(path)
     computed = compute_metrics(flight)
 
-    manual_roll = np.concatenate(
-        [flight.sticks["roll"][a:b] for a, b in contiguous_segments(flight.manual_mask)]
-        or [np.empty(0)]
-    )
-    edges, counts = M.amplitude_histogram(manual_roll)
+    segments = contiguous_segments(flight.manual_mask)
+    amplitude_histograms: dict[str, dict[str, list[float] | list[int]]] = {}
+    for axis, series in flight.sticks.items():
+        manual_series = np.concatenate(
+            [series[a:b] for a, b in segments] or [np.empty(0)]
+        )
+        edges, counts = M.amplitude_histogram(manual_series)
+        amplitude_histograms[axis] = {"bins": edges, "counts": counts}
 
     warnings: list[str] = []
     if not flight.phases:
@@ -126,7 +129,7 @@ def analyze(path: str | Path, thresholds_path: str | Path = DEFAULT_THRESHOLDS) 
             "att_roll": downsample(flight.att_roll),
             "att_pitch": downsample(flight.att_pitch),
         },
-        amplitude_histogram={"bin_edges": edges, "counts": counts},
+        amplitude_histogram=amplitude_histograms,
         warnings=warnings,
         crashed=crashed,
     )
