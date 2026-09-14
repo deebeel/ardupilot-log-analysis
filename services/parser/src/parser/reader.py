@@ -204,7 +204,15 @@ def resample(times: FloatArray, values: FloatArray, grid: FloatArray) -> FloatAr
 
 
 def _raw_records(path: str | Path) -> RawRecords:
-    """Сирий прохід по логу: PARM, RCIN, ATT, MODE, POS, STAT."""
+    """Сирий прохід по логу: PARM, RCIN, ATT, MODE, POS, STAT.
+
+    `recv_match` тут — вже стрімінг: `DFReader` (усередині `mavlink_connection`)
+    читає `.bin` послідовно, запис за записом, не завантажуючи файл у пам'ять
+    цілим. У пам'яті накопичуються лише відфільтровані числові серії (RCIN/ATT/…
+    цього польоту, тисячі точок) — не сирий лог; батчами це не читаємо, бо
+    `resample()` нижче все одно потребує повний часовий діапазон і всю серію
+    одразу для інтерполяції на спільну сітку.
+    """
     from pymavlink import mavutil  # локальний імпорт: важкий і потрібен лише тут
 
     connection = mavutil.mavlink_connection(str(path))
