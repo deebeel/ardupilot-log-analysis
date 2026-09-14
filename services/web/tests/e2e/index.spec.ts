@@ -8,7 +8,7 @@ test('список показує всі польоти з теки резуль
   const cards = page.getByTestId('flight-card');
 
   // Assert
-  await expect(cards).toHaveCount(3);
+  await expect(cards).toHaveCount(4);
 });
 
 test('кожен політ у списку — посилання на свою сторінку звіту', async ({ page }) => {

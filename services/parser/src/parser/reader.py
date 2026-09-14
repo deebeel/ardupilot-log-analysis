@@ -38,6 +38,12 @@ class RawRecords(TypedDict):
     att_roll: FloatArray
     att_pitch: FloatArray
     modes: list[tuple[float, str]]
+    pos_t: FloatArray
+    rel_alt: FloatArray
+    #: `STAT.Crash` — вбудований crash-детектор ArduPilot; активний лише в
+    #: AUTO (див. detect_crash у metrics.py для evristики, що працює й на
+    #: ручних режимах). `True`, якщо хоч раз стрічається в лозі.
+    stat_crash_any: bool
 
 #: Частота спільної сітки ресемплінгу, Гц.
 RESAMPLE_HZ: float = 10.0
@@ -110,6 +116,10 @@ class FlightData:
     manual_mask: BoolArray
     phases: list[PhaseDict] = field(default_factory=list)
     dt: float = DT
+    #: `POS.RelHomeAlt`, м, ресемплено на ту саму сітку; порожньо -> нулі.
+    rel_alt: FloatArray = field(default_factory=lambda: np.zeros(0))
+    #: `STAT.Crash` (AUTO-only вбудований детектор) хоч раз траплявся `True`.
+    stat_crash_any: bool = False
 
     @property
     def duration_s(self) -> float:
@@ -194,7 +204,7 @@ def resample(times: FloatArray, values: FloatArray, grid: FloatArray) -> FloatAr
 
 
 def _raw_records(path: str | Path) -> RawRecords:
-    """Сирий прохід по логу: PARM, RCIN, ATT, MODE."""
+    """Сирий прохід по логу: PARM, RCIN, ATT, MODE, POS, STAT."""
     from pymavlink import mavutil  # локальний імпорт: важкий і потрібен лише тут
 
     connection = mavutil.mavlink_connection(str(path))
@@ -205,9 +215,12 @@ def _raw_records(path: str | Path) -> RawRecords:
     att_roll: list[float] = []
     att_pitch: list[float] = []
     modes: list[tuple[float, str]] = []
+    pos_t: list[float] = []
+    rel_alt: list[float] = []
+    stat_crash_any = False
 
     while True:
-        message = connection.recv_match(type=["PARM", "RCIN", "ATT", "MODE"])
+        message = connection.recv_match(type=["PARM", "RCIN", "ATT", "MODE", "POS", "STAT"])
         if message is None:
             break
         kind = message.get_type()
@@ -225,6 +238,11 @@ def _raw_records(path: str | Path) -> RawRecords:
         elif kind == "MODE":
             number = getattr(message, "ModeNum", getattr(message, "Mode", -1))
             modes.append((timestamp, mode_name(number)))
+        elif kind == "POS":
+            pos_t.append(timestamp)
+            rel_alt.append(float(message.RelHomeAlt))
+        elif kind == "STAT":
+            stat_crash_any = stat_crash_any or bool(getattr(message, "Crash", False))
 
     return {
         "params": params,
@@ -234,6 +252,9 @@ def _raw_records(path: str | Path) -> RawRecords:
         "att_roll": np.asarray(att_roll, dtype=np.float64),
         "att_pitch": np.asarray(att_pitch, dtype=np.float64),
         "modes": modes,
+        "pos_t": np.asarray(pos_t, dtype=np.float64),
+        "rel_alt": np.asarray(rel_alt, dtype=np.float64),
+        "stat_crash_any": stat_crash_any,
     }
 
 
@@ -266,6 +287,7 @@ def read_flight(path: str | Path) -> FlightData:
     }
     att_roll = resample(raw["att_t"] - start, raw["att_roll"], grid)
     att_pitch = resample(raw["att_t"] - start, raw["att_pitch"], grid)
+    rel_alt = resample(raw["pos_t"] - start, raw["rel_alt"], grid)
     phases = build_phases(raw["modes"], start, end)
 
     return FlightData(
@@ -275,4 +297,6 @@ def read_flight(path: str | Path) -> FlightData:
         att_pitch=att_pitch,
         manual_mask=manual_mask_from_phases(grid, phases),
         phases=phases,
+        rel_alt=rel_alt,
+        stat_crash_any=raw["stat_crash_any"],
     )

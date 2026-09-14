@@ -8,7 +8,7 @@
 
 import type { AxisValues, Metrics, Thresholds, Threshold } from './types.ts';
 
-export type Category = 'good' | 'warning' | 'bad' | 'unknown';
+export type Category = 'good' | 'warning' | 'bad' | 'crashed' | 'unknown';
 
 export interface Reason {
   metric: string;
@@ -32,6 +32,16 @@ const SEVERITY: Record<Category, number> = {
   good: 0,
   warning: 1,
   bad: 2,
+  crashed: 3,
+};
+
+/** Спільні класи бейджа категорії — і для картки списку, і для панелі вердикту. */
+export const BADGE_CLASSES: Record<Category, string> = {
+  good: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+  warning: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+  bad: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
+  crashed: 'bg-red-950 text-red-300 border-red-500/70',
+  unknown: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
 };
 
 /**
@@ -130,6 +140,28 @@ export function correctionsCount(
     pitch: Math.round(correctionsPerMin.pitch * factor),
     yaw: Math.round(correctionsPerMin.yaw * factor),
   };
+}
+
+/**
+ * `crashed` (з парсера: `STAT.Crash` АБО наша евристика по хвосту логу)
+ * переважає над будь-якою числовою категоризацією порогів — фізичний
+ * інцидент гірший за перевищення будь-якого порогу.
+ */
+export function withCrashOverride(verdict: Category, crashed: boolean): Category {
+  return crashed ? 'crashed' : verdict;
+}
+
+/**
+ * Форматування значення для показу — деякі метрики дискретні по своїй суті
+ * (кількість корекцій/хв — ціле число подій на хвилину; затримка реакції —
+ * мс, осмислені лише цілі), інші (amplitude/jerk/oscillation_pct) справді
+ * неперервні й лишаються з дробовою точністю парсера.
+ */
+export function formatMetricValue(metric: string, value: number): string {
+  if (metric === 'corrections_per_min' || metric === 'reaction_latency_ms') {
+    return String(Math.round(value));
+  }
+  return String(value);
 }
 
 /** Короткий текстовий вердикт (крок 3 алгоритму) — шаблон рядка, без LLM. */

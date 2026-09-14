@@ -4,26 +4,29 @@
  */
 import { useMemo, useState } from 'react';
 import type { Metrics, Threshold, Thresholds } from '../lib/types.ts';
-import { computeVerdict, correctionsCount, verdictSummary } from '../lib/verdict.ts';
+import {
+  BADGE_CLASSES,
+  computeVerdict,
+  correctionsCount,
+  formatMetricValue,
+  verdictSummary,
+  withCrashOverride,
+} from '../lib/verdict.ts';
 
 interface Props {
   metrics: Metrics;
   defaultThresholds: Thresholds;
   /** Тривалість проаналізованих (ручних) фаз, с — для дискретної кількості корекцій. */
   analyzedDurationS: number;
+  /** `STAT.Crash` АБО наша евристика (парсер) — переважає над числовими порогами. */
+  crashed: boolean;
 }
-
-const BADGE: Record<string, string> = {
-  good: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  warning: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  bad: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
-  unknown: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
-};
 
 const CELL: Record<string, string> = {
   good: 'text-emerald-300',
   warning: 'text-amber-300',
   bad: 'text-rose-300',
+  crashed: 'text-red-400',
   unknown: 'text-slate-400',
 };
 
@@ -37,10 +40,11 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurationS }: Props) {
+export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurationS, crashed }: Props) {
   const [thresholds, setThresholds] = useState<Thresholds>(defaultThresholds);
 
   const result = useMemo(() => computeVerdict(metrics, thresholds), [metrics, thresholds]);
+  const verdict = withCrashOverride(result.verdict, crashed);
   const names = Object.keys(defaultThresholds) as (keyof Thresholds)[];
   const counts = useMemo(
     () => correctionsCount(metrics.corrections_per_min, analyzedDurationS),
@@ -64,13 +68,13 @@ export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurat
       <div className="flex flex-wrap items-center gap-3">
         <span
           data-testid="verdict"
-          data-verdict={result.verdict}
-          className={`rounded-md border px-3 py-1 text-sm font-semibold uppercase ${BADGE[result.verdict]}`}
+          data-verdict={verdict}
+          className={`rounded-md border px-3 py-1 text-sm font-semibold uppercase ${BADGE_CLASSES[verdict]}`}
         >
-          {result.verdict}
+          {verdict}
         </span>
         <span data-testid="verdict-summary" className="text-sm text-slate-300">
-          {verdictSummary(result)}
+          {crashed ? 'CRASHED: апарат зазнав аварії (удар/розбиття)' : verdictSummary(result)}
         </span>
         <button
           type="button"
@@ -135,7 +139,7 @@ export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurat
             <tr key={`${reason.metric}-${reason.axis ?? 'scalar'}`} className="border-t border-slate-800">
               <td className="py-1 font-mono text-xs">{reason.metric}</td>
               <td className="py-1 text-slate-400">{reason.axis ?? '—'}</td>
-              <td className="py-1 tabular-nums">{reason.value}</td>
+              <td className="py-1 tabular-nums">{formatMetricValue(reason.metric, reason.value)}</td>
               <td className="py-1 tabular-nums" data-testid={`count-${reason.metric}-${reason.axis ?? 'scalar'}`}>
                 {reason.metric === 'corrections_per_min' && reason.axis !== null
                   ? counts[reason.axis as keyof typeof counts]

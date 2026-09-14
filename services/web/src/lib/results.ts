@@ -38,6 +38,7 @@ function summaryFromFlight(flight: Flight): FlightSummary {
     error: null,
     metrics: flight.metrics,
     default_thresholds: flight.default_thresholds,
+    crashed: flight.crashed,
   };
 }
 
@@ -49,6 +50,7 @@ function summaryFromError(id: string, payload: FlightError): FlightSummary {
     error: payload.error ?? 'невідома помилка парсингу',
     metrics: null,
     default_thresholds: null,
+    crashed: false,
   };
 }
 
@@ -65,7 +67,7 @@ async function summarize(dir: string, file: string): Promise<FlightSummary | nul
       : summaryFromFlight(payload as Flight);
   } catch {
     // Побитий/недописаний JSON не має валити всю сторінку списку.
-    return { flight_id: id, status: 'error', duration_s: null, error: 'не вдалось прочитати JSON', metrics: null, default_thresholds: null };
+    return { flight_id: id, status: 'error', duration_s: null, error: 'не вдалось прочитати JSON', metrics: null, default_thresholds: null, crashed: false };
   }
 }
 

@@ -107,6 +107,10 @@ def analyze(path: str | Path, thresholds_path: str | Path = DEFAULT_THRESHOLDS) 
     if flight.analyzed_duration_s <= 0:
         warnings.append("no manual-mode phases found; metrics are zero/null")
 
+    crashed = flight.stat_crash_any or M.detect_crash_heuristic(
+        flight.rel_alt, flight.att_roll, flight.att_pitch, flight.dt
+    )
+
     return FlightResult(
         flight_id=flight_id_from_path(path),
         duration_s=round(flight.duration_s, 3),
@@ -124,6 +128,7 @@ def analyze(path: str | Path, thresholds_path: str | Path = DEFAULT_THRESHOLDS) 
         },
         amplitude_histogram={"bin_edges": edges, "counts": counts},
         warnings=warnings,
+        crashed=crashed,
     )
 
 

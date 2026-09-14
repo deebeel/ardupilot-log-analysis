@@ -34,6 +34,16 @@ ATTITUDE_EVENT_THRESHOLD_DEG: float = 10.0
 #: Ширина baseline-вікна для детрендингу attitude, с.
 ATTITUDE_BASELINE_S: float = 5.0
 
+#: Скільки останніх секунд логу перевіряти на ознаки удару об землю.
+CRASH_TAIL_WINDOW_S: float = 3.0
+
+#: Висота над домом (POS.RelHomeAlt, м), нижче якої вважаємо апарат "на землі".
+CRASH_ALT_THRESHOLD_M: float = 2.0
+
+#: Крен/тангаж (град.) у хвостовому вікні на такій висоті — ознака удару,
+#: не контрольованої посадки (керована посадка тримає апарат близько до рівня).
+CRASH_ATTITUDE_THRESHOLD_DEG: float = 60.0
+
 
 def outside_deadband(values: FloatArray, deadband: float = DEADBAND) -> BoolArray:
     """Булева маска семплів поза deadband (рівно на межі — всередині)."""
@@ -186,6 +196,35 @@ def reaction_latency_ms(
     if not latencies:
         return None
     return float(np.median(latencies))
+
+
+def detect_crash_heuristic(
+    rel_alt: FloatArray,
+    att_roll_deg: FloatArray,
+    att_pitch_deg: FloatArray,
+    dt: float,
+    tail_window_s: float = CRASH_TAIL_WINDOW_S,
+    alt_threshold_m: float = CRASH_ALT_THRESHOLD_M,
+    attitude_threshold_deg: float = CRASH_ATTITUDE_THRESHOLD_DEG,
+) -> bool:
+    """Наша евристика: у ХВОСТІ логу апарат опинився близько до землі під
+    екстремальним креном/тангажем — ознака удару, а не керованої посадки.
+
+    Доповнює `STAT.Crash` (вбудований детектор ArduPilot), який працює лише
+    в AUTO — на ручних режимах (MANUAL/FBWA), якими й керується весь стенд,
+    він не спрацює навіть при реальному падінні.
+    """
+    if dt <= 0 or rel_alt.size == 0:
+        return False
+    window = max(1, int(round(tail_window_s / dt)))
+    tail_alt = rel_alt[-window:]
+    tail_roll = att_roll_deg[-window:] if att_roll_deg.size else np.empty(0)
+    tail_pitch = att_pitch_deg[-window:] if att_pitch_deg.size else np.empty(0)
+    if tail_alt.size == 0 or float(np.min(tail_alt)) > alt_threshold_m:
+        return False
+    max_roll = float(np.max(np.abs(tail_roll))) if tail_roll.size else 0.0
+    max_pitch = float(np.max(np.abs(tail_pitch))) if tail_pitch.size else 0.0
+    return max(max_roll, max_pitch) > attitude_threshold_deg
 
 
 def amplitude_histogram(

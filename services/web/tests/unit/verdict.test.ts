@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { categorize, computeVerdict, correctionsCount } from '../../src/lib/verdict.ts';
+import {
+  categorize,
+  computeVerdict,
+  correctionsCount,
+  formatMetricValue,
+  withCrashOverride,
+} from '../../src/lib/verdict.ts';
 import type { AxisValues, Metrics, Thresholds } from '../../src/lib/types.ts';
 
 const T = { good_max: 6, warn_max: 12 };
@@ -342,5 +348,47 @@ describe('correctionsCount — дискретна кількість корек�
 
     // Assert
     expect(result).toEqual({ roll: 0, pitch: 0, yaw: 0 });
+  });
+});
+
+describe('withCrashOverride — фізичний інцидент переважає числові пороги', () => {
+  it.each([
+    ['good', true, 'crashed'],
+    ['warning', true, 'crashed'],
+    ['bad', true, 'crashed'],
+    ['good', false, 'good'],
+    ['bad', false, 'bad'],
+  ] as const)('verdict=%s, crashed=%s -> %s', (verdict, crashed, expected) => {
+    // Arrange / Act
+    const result = withCrashOverride(verdict, crashed);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+});
+
+describe('formatMetricValue — дискретні метрики без хвоста десяткових', () => {
+  it.each([
+    ['corrections_per_min', 4.1796, '4'],
+    ['corrections_per_min', 4.5, '5'],
+    ['reaction_latency_ms', 700.3, '700'],
+  ])('%s(%s) -> %s', (metric, value, expected) => {
+    // Arrange / Act
+    const result = formatMetricValue(metric, value);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+
+  it.each([
+    ['mean_amplitude', 0.8535],
+    ['mean_jerk', 0.0944],
+    ['oscillation_time_pct', 0.0],
+  ])('%s лишається неперервним, без округлення', (metric, value) => {
+    // Arrange / Act
+    const result = formatMetricValue(metric, value);
+
+    // Assert
+    expect(result).toBe(String(value));
   });
 });

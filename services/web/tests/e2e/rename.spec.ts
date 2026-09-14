@@ -18,8 +18,8 @@ test('кнопка перейменування є на кожній картц�
   // Act
   const buttons = page.getByTestId('rename-flight');
 
-  // Assert (flight-good, flight-bad, і зламаний .error.json з index.spec.ts)
-  await expect(buttons).toHaveCount(3);
+  // Assert (flight-good, flight-bad, flight-crashed, і зламаний .error.json з index.spec.ts)
+  await expect(buttons).toHaveCount(4);
 });
 
 test('перейменування на сторінці деталей зберігається після перезавантаження', async ({ page }) => {

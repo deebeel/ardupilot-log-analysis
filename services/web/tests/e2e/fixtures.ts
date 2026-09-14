@@ -64,7 +64,7 @@ function goodMetrics() {
   };
 }
 
-function flight(id: string, metrics: ReturnType<typeof goodMetrics>) {
+function flight(id: string, metrics: ReturnType<typeof goodMetrics>, crashed = false) {
   return {
     flight_id: id,
     duration_s: 200,
@@ -77,6 +77,7 @@ function flight(id: string, metrics: ReturnType<typeof goodMetrics>) {
     default_thresholds: DEFAULT_THRESHOLDS,
     series: series(0.3),
     amplitude_histogram: histogram(),
+    crashed,
   };
 }
 
@@ -130,6 +131,8 @@ export function prepareFixtures(): FixtureDirs {
   const bad = goodMetrics();
   bad.mean_jerk = { ...bad.mean_jerk, roll: 1.6 };
   write('flight-bad.json', flight('flight-bad', bad));
+  // усі метрики good, але crashed=true — override має переважити хороші числа
+  write('flight-crashed.json', flight('flight-crashed', goodMetrics(), true));
   write('flight-broken.error.json', {
     flight_id: 'flight-broken',
     error: 'DFReader: unexpected end of file at offset 12345',

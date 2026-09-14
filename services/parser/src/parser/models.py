@@ -55,6 +55,9 @@ class FlightResult:
     source_file: str = ""
     schema_version: int = 1
     warnings: list[str] = field(default_factory=list)
+    #: `STAT.Crash` (AUTO-only) АБО наша евристика (кінець логу: низька висота
+    #: + екстремальний крен/тангаж) — див. metrics.detect_crash_heuristic.
+    crashed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

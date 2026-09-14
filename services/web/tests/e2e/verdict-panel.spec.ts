@@ -124,3 +124,28 @@ test.describe('дискретна кількість корекцій', () => {
     await expect(cell).toHaveText('—');
   });
 });
+
+test.describe('crashed переважає всі числові пороги', () => {
+  test('політ з crashed=true отримує вердикт crashed навіть із хорошими метриками', async ({ page }) => {
+    // Arrange
+    await page.goto('/flight/flight-crashed');
+
+    // Act
+    const verdict = page.getByTestId('verdict');
+
+    // Assert
+    await expect(verdict).toHaveAttribute('data-verdict', 'crashed');
+  });
+
+  test('картка crashed-польоту у списку показує бейдж crashed', async ({ page }) => {
+    // Arrange
+    await page.goto('/');
+
+    // Act
+    const card = page.getByTestId('flight-card').filter({ hasText: 'flight-crashed' });
+    const badge = card.getByTestId('verdict-badge');
+
+    // Assert
+    await expect(badge).toHaveAttribute('data-verdict', 'crashed');
+  });
+});

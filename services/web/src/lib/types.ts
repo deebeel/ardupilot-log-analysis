@@ -57,6 +57,8 @@ export interface Flight {
   default_thresholds: Thresholds;
   series: Series;
   amplitude_histogram: AmplitudeHistogram;
+  /** `STAT.Crash` (ArduPilot, AUTO-only) АБО евристика парсера по хвосту логу. */
+  crashed: boolean;
 }
 
 /** Політ, парсинг якого впав: `<flight_id>.error.json`. */
@@ -73,4 +75,5 @@ export interface FlightSummary {
   error: string | null;
   metrics: Metrics | null;
   default_thresholds: Thresholds | null;
+  crashed: boolean;
 }

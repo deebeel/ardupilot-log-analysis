@@ -3,12 +3,23 @@
 // який htmx підвантажує поллінгом. Одна розмітка — щоб перший рендер і кожен наступний
 // поллінг-свап виглядали однаково.
 import type { FlightSummary } from '../lib/types.ts';
+import { BADGE_CLASSES, computeVerdict, withCrashOverride, type Category } from '../lib/verdict.ts';
 
 interface Props {
   flights: FlightSummary[];
 }
 
 const { flights } = Astro.props;
+
+/** Бейдж good/warning/bad/crashed для картки — `null`, якщо metrics/пороги ще нема
+ *  (лише для статусу `error`, там показуємо окремий бейдж "помилка парсингу"). */
+function verdictBadge(flight: FlightSummary): Category | null {
+  if (flight.metrics === null || flight.default_thresholds === null) {
+    return null;
+  }
+  const result = computeVerdict(flight.metrics, flight.default_thresholds);
+  return withCrashOverride(result.verdict, flight.crashed);
+}
 ---
 
 <div id="flight-list-root">
@@ -19,7 +30,9 @@ const { flights } = Astro.props;
       </p>
     ) : (
       <ul class="grid gap-3" data-testid="flight-list">
-        {flights.map((flight) => (
+        {flights.map((flight) => {
+          const badge = verdictBadge(flight);
+          return (
           <li data-testid="flight-card" data-status={flight.status} class="flex items-center gap-2">
             <a
               href={`/flight/${flight.flight_id}`}
@@ -28,13 +41,24 @@ const { flights } = Astro.props;
               <span class="font-mono" data-testid="flight-name" data-flight-name={flight.flight_id}>
                 {flight.flight_id}
               </span>
-              {flight.status === 'error' ? (
-                <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
-                  помилка парсингу
-                </span>
-              ) : (
-                <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
-              )}
+              <span class="flex items-center gap-2">
+                {flight.status === 'error' ? (
+                  <span data-testid="error-badge" class="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
+                    помилка парсингу
+                  </span>
+                ) : (
+                  <span class="text-sm text-slate-400">{Math.round(flight.duration_s ?? 0)} с</span>
+                )}
+                {badge !== null && (
+                  <span
+                    data-testid="verdict-badge"
+                    data-verdict={badge}
+                    class={`rounded-md border px-2 py-0.5 text-xs font-semibold uppercase ${BADGE_CLASSES[badge]}`}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </span>
             </a>
             <button
               type="button"
@@ -46,7 +70,8 @@ const { flights } = Astro.props;
               ✎
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     )
   }
