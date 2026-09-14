@@ -218,6 +218,10 @@ CMD ["node", "./dist/server/entry.mjs"]
 
 ## 5. docker-compose
 
+**Реалізовано** — `deploy/compose/docker-compose.yml`/`Caddyfile`/`.env.example`, перевірено
+живцем (`make stack-up`): `curl https://localhost/` → 200 через self-signed Caddy, парсер
+підхопив реальні `.BIN` з `data/inbox`, `make stack-down` прибирає все чисто.
+
 Один файл `deploy/compose/docker-compose.yml`, різниця локально/VPS — лише `.env`.
 
 ```yaml
@@ -251,15 +255,19 @@ SITL не контейнеризується (тікет: "у ВМ або на b
 
 ## 6. Makefile (локально)
 
+**Реалізовано** (крім `sitl-up`/`keyboard`/`deploy` — ті йдуть окремо: SITL/keyboard-адаптер
+запускаються нативно на Ubuntu-хості за `docs/host-prerequisites.md`, не з Mac; `deploy` —
+разом із `deploy/deploy.sh`, §7).
+
 ```
-sitl-up                  # cd ardupilot/ArduPlane && sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map
-keyboard                 # uv run --project tools/keyboard_adapter ...
-stack-up / stack-down    # локальний прогін parser+web
-build                    # buildx --platform linux/amd64, обидва образи
-save                     # docker save | gzip → dist/images.tar.gz
-test                     # pytest (parser) + npm test (web)
+setup-input-group        # sudo usermod -aG input — делегується з tools/setup-host.sh
+fetch-logs                # dev-зручність: .BIN/.tlog з UTM VM у data/ через ssh/rsync
+stack-up / stack-down    # docker compose -f deploy/compose/docker-compose.yml (parser+web+caddy)
+build                    # buildx, обидва образи (--platform linux/amd64 для VPS-цілі)
+save                     # build + docker save | gzip → dist/images.tar.gz
+test                     # mypy+pytest (parser) + lint/vitest/playwright (web)
 parse FILE=...           # разовий прогін воркера на файлі, без watcher
-deploy                   # deploy/deploy.sh
+deploy                   # ще не реалізовано — deploy/deploy.sh
 ```
 
 ---
