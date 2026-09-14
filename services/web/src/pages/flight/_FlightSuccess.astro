@@ -2,12 +2,12 @@
 /**
  * Приватний хелпер сторінки `[id].astro` — не є маршрутом (Astro ігнорує
  * файли з `_` у `pages/`). Використовується лише тут, тому колокований, а
- * не в `src/components/`.
+ * не в спільній теці для перевикористовуваних компонентів.
  */
-import StickOverlayChart from '../../components/StickOverlayChart.tsx';
-import AmplitudeHistogram from '../../components/AmplitudeHistogram.tsx';
-import VerdictPanel from '../../components/VerdictPanel.tsx';
-import RenameableFlightTitle from '../../components/RenameableFlightTitle.tsx';
+import StickOverlayChart from './_StickOverlayChart.tsx';
+import AmplitudeHistogram from './_AmplitudeHistogram.tsx';
+import VerdictPanel from './_VerdictPanel.tsx';
+import RenameableFlightTitle from './_RenameableFlightTitle.tsx';
 import type { Flight } from '../../lib/types.ts';
 
 interface Props {

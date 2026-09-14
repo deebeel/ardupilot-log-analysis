@@ -5,7 +5,7 @@
  * перерендер після запису (React сам не бачить зміни в `localStorage`).
  */
 import { useState } from 'react';
-import { getStoredName, setStoredName } from '../lib/localName.ts';
+import { getStoredName, setStoredName } from '../../lib/localName.ts';
 
 interface Props {
   flightId: string;

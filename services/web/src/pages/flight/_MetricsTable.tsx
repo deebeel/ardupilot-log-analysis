@@ -5,7 +5,7 @@
  * ззовні цього каталогу", той самий підхід, що й `_FlightError`/`_FlightSuccess`
  * у `pages/flight/`.
  */
-import { CELL_TEXT_CLASSES, formatMetricValue, type Reason } from '../lib/verdict.ts';
+import { CELL_TEXT_CLASSES, formatMetricValue, type Reason } from '../../lib/verdict.ts';
 
 interface Props {
   axis: string;

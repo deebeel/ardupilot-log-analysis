@@ -3,7 +3,7 @@
  * у браузері, без запиту на сервер. Сервер віддає лише метрики + дефолтні пороги.
  */
 import { useMemo, useState } from 'react';
-import type { Metrics, Threshold, Thresholds } from '../lib/types.ts';
+import type { Metrics, Threshold, Thresholds } from '../../lib/types.ts';
 import {
   AXES,
   BADGE_CLASSES,
@@ -14,7 +14,7 @@ import {
   sliderStep,
   verdictSummary,
   withCrashOverride,
-} from '../lib/verdict.ts';
+} from '../../lib/verdict.ts';
 import MetricsTable from './_MetricsTable.tsx';
 
 interface Props {
