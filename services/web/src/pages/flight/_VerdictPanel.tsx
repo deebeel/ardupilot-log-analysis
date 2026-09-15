@@ -131,7 +131,7 @@ export default function VerdictPanel({ metrics, defaultThresholds, analyzedDurat
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {AXES.map((axis) => (
           <MetricsTable
             key={axis}

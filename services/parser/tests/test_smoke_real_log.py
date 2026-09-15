@@ -88,7 +88,7 @@ def test_analyzed_duration_does_not_exceed_total_duration(real_result: FlightRes
     assert within, (metrics_window, real_result.duration_s)
 
 
-@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw", "throttle"])
 def test_corrections_per_min_is_finite_and_plausible(real_result: FlightResult, axis: str) -> None:
     # Arrange
     value = real_result.metrics.corrections_per_min[axis]
@@ -100,7 +100,7 @@ def test_corrections_per_min_is_finite_and_plausible(real_result: FlightResult, 
     assert plausible, value
 
 
-@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw", "throttle"])
 def test_mean_amplitude_is_within_normalized_range(real_result: FlightResult, axis: str) -> None:
     # Arrange
     value = real_result.metrics.mean_amplitude[axis]
@@ -112,7 +112,7 @@ def test_mean_amplitude_is_within_normalized_range(real_result: FlightResult, ax
     assert within, value
 
 
-@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw", "throttle"])
 def test_oscillation_share_is_a_fraction(real_result: FlightResult, axis: str) -> None:
     # Arrange
     value = real_result.metrics.oscillation_time_pct[axis]
@@ -124,7 +124,7 @@ def test_oscillation_share_is_a_fraction(real_result: FlightResult, axis: str) -
     assert within, value
 
 
-@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw", "throttle"])
 def test_mean_jerk_is_finite_and_non_negative(real_result: FlightResult, axis: str) -> None:
     # Arrange
     value = real_result.metrics.mean_jerk[axis]
@@ -170,7 +170,7 @@ def test_default_thresholds_are_embedded_for_the_client(real_result: FlightResul
     assert "mean_jerk" in keys
 
 
-@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw"])
+@pytest.mark.parametrize("axis", ["roll", "pitch", "yaw", "throttle"])
 def test_amplitude_histogram_edges_exceed_counts_by_one(real_result: FlightResult, axis: str) -> None:
     # Arrange
     histogram = real_result.amplitude_histogram[axis]
@@ -182,9 +182,9 @@ def test_amplitude_histogram_edges_exceed_counts_by_one(real_result: FlightResul
     assert difference == 1
 
 
-def test_amplitude_histogram_has_all_three_axes(real_result: FlightResult) -> None:
+def test_amplitude_histogram_has_all_four_axes(real_result: FlightResult) -> None:
     # Arrange / Act
     axes = set(real_result.amplitude_histogram.keys())
 
     # Assert
-    assert axes == {"roll", "pitch", "yaw"}
+    assert axes == {"roll", "pitch", "yaw", "throttle"}

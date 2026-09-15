@@ -19,7 +19,12 @@ const FLIGHT = {
   metrics: { reaction_latency_ms: 200 },
   default_thresholds: { reaction_latency_ms: { good_max: 500, warn_max: 1000 } },
   series: { t: [0, 1], roll: [0, 0], pitch: [0, 0], att_roll: [0, 0], att_pitch: [0, 0] },
-  amplitude_histogram: { roll: { bins: [], counts: [] }, pitch: { bins: [], counts: [] }, yaw: { bins: [], counts: [] } },
+  amplitude_histogram: {
+    roll: { bins: [], counts: [] },
+    pitch: { bins: [], counts: [] },
+    yaw: { bins: [], counts: [] },
+    throttle: { bins: [], counts: [] },
+  },
 };
 
 const EMPTY_DIR = dir('empty');

@@ -57,7 +57,10 @@ DEFAULT_RC_TRIM: float = 1500.0
 DEFAULT_RC_MAX: float = 2000.0
 
 #: Осі керування -> номер RC-каналу (стандартний ArduPlane mapping).
-AXIS_CHANNELS: dict[str, int] = {"roll": 1, "pitch": 2, "yaw": 4}
+#: Тікет вимагає throttle нарівні з roll/pitch/yaw (п.3: "канали RCIN
+#: roll/pitch/throttle/yaw"), хоч throttle і не має spring-return на клавіатурі
+#: (утримується, CLAUDE.md) — метрики над ним рахуються так само, як і над рештою.
+AXIS_CHANNELS: dict[str, int] = {"roll": 1, "pitch": 2, "throttle": 3, "yaw": 4}
 
 #: Номери режимів ArduPlane -> імена (не залежимо від внутрішніх таблиць pymavlink).
 PLANE_MODE_NAMES: dict[int, str] = {

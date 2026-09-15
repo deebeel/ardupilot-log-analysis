@@ -1,9 +1,9 @@
 /**
- * Одна таблиця метрик для ОДНІЄЇ осі (roll/pitch/yaw) — приватний хелпер
- * `VerdictPanel`, використовується 3 рази (по осі), тому виправдано як
- * окремий файл, а не інлайн-JSX. Назва з `_` — сигнал "не для імпорту
- * ззовні цього каталогу", той самий підхід, що й `_FlightError`/`_FlightSuccess`
- * у `pages/flight/`.
+ * Одна таблиця метрик для ОДНІЄЇ осі (roll/pitch/yaw/throttle — п.3 тікета:
+ * "канали RCIN roll/pitch/throttle/yaw") — приватний хелпер `VerdictPanel`,
+ * використовується 4 рази (по осі), тому виправдано як окремий файл, а не
+ * інлайн-JSX. Назва з `_` — сигнал "не для імпорту ззовні цього каталогу",
+ * той самий підхід, що й `_FlightError`/`_FlightSuccess` у `pages/flight/`.
  */
 import { CELL_TEXT_CLASSES, formatMetricValue, type Reason } from '../../lib/verdict.ts';
 

@@ -48,10 +48,20 @@ function series(scale: number) {
 function histogram() {
   const bins = Array.from({ length: 20 }, (_, i) => i / 20);
   const counts = bins.map((_, i) => 200 - i * 8);
-  return { roll: { bins, counts }, pitch: { bins, counts }, yaw: { bins, counts } };
+  return {
+    roll: { bins, counts },
+    pitch: { bins, counts },
+    yaw: { bins, counts },
+    throttle: { bins, counts },
+  };
 }
 
-const axis = (base: number) => ({ roll: base, pitch: base * 0.7, yaw: base * 0.2 });
+const axis = (base: number) => ({
+  roll: base,
+  pitch: base * 0.7,
+  yaw: base * 0.2,
+  throttle: base * 0.5,
+});
 
 /** Усі метрики впевнено під good_max. */
 function goodMetrics() {

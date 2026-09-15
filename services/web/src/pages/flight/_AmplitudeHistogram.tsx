@@ -14,6 +14,7 @@ const COLORS: Record<string, string> = {
   roll: '#38bdf8',
   pitch: '#a78bfa',
   yaw: '#34d399',
+  throttle: '#f59e0b',
 };
 
 export default function AmplitudeHistogram({ histogram }: Props) {
@@ -27,12 +28,7 @@ export default function AmplitudeHistogram({ histogram }: Props) {
       return;
     }
     const bins = histogram.roll.bins;
-    const data: uPlot.AlignedData = [
-      bins,
-      histogram.roll.counts,
-      histogram.pitch.counts,
-      histogram.yaw.counts,
-    ];
+    const data: uPlot.AlignedData = [bins, ...AXES.map((axis) => histogram[axis].counts)];
     boundsRef.current = { min: bins[0] ?? 0, max: bins[bins.length - 1] ?? 1 };
     const chart = new uPlot(
       {

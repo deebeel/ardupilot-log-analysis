@@ -23,8 +23,9 @@ export interface VerdictResult {
   reasons: Reason[];
 }
 
-/** Метрики з розбивкою по осях; решта — скаляри. */
-export const AXES = ['roll', 'pitch', 'yaw'] as const;
+/** Метрики з розбивкою по осях; решта — скаляри. Тікет (п.3) вимагає throttle
+ *  нарівні з roll/pitch/yaw — RCIN roll/pitch/throttle/yaw. */
+export const AXES = ['roll', 'pitch', 'yaw', 'throttle'] as const;
 
 /** Чим більше число — тим гірша категорія (для worst-case агрегації). */
 const SEVERITY: Record<Category, number> = {
@@ -149,13 +150,14 @@ export function correctionsCount(
   analyzedDurationS: number,
 ): AxisValues {
   if (analyzedDurationS <= 0) {
-    return { roll: 0, pitch: 0, yaw: 0 };
+    return { roll: 0, pitch: 0, yaw: 0, throttle: 0 };
   }
   const factor = analyzedDurationS / 60;
   return {
     roll: Math.round(correctionsPerMin.roll * factor),
     pitch: Math.round(correctionsPerMin.pitch * factor),
     yaw: Math.round(correctionsPerMin.yaw * factor),
+    throttle: Math.round(correctionsPerMin.throttle * factor),
   };
 }
 

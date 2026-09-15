@@ -16,7 +16,12 @@ def make_flight(manual_mask: BoolArray, roll: FloatArray | None = None) -> Fligh
     roll_series = np.zeros(size) if roll is None else roll
     return FlightData(
         t=grid,
-        sticks={"roll": roll_series, "pitch": np.zeros(size), "yaw": np.zeros(size)},
+        sticks={
+            "roll": roll_series,
+            "pitch": np.zeros(size),
+            "yaw": np.zeros(size),
+            "throttle": np.zeros(size),
+        },
         att_roll=np.zeros(size),
         att_pitch=np.zeros(size),
         manual_mask=manual_mask,
@@ -63,7 +68,7 @@ def test_log_without_manual_modes_yields_zero_metrics() -> None:
     result = compute_metrics(flight)
 
     # Assert
-    assert result.corrections_per_min == {"roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+    assert result.corrections_per_min == {"roll": 0.0, "pitch": 0.0, "yaw": 0.0, "throttle": 0.0}
 
 
 def test_log_without_manual_modes_yields_null_reaction_latency() -> None:

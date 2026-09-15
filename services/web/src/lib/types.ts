@@ -1,12 +1,13 @@
 /** Контракт JSON польоту, який пише сервіс `parser` у RESULTS_DIR. */
 
-export type Axis = 'roll' | 'pitch' | 'yaw';
+export type Axis = 'roll' | 'pitch' | 'yaw' | 'throttle';
 
 /** Значення метрики з розбивкою по осях. */
 export interface AxisValues {
   roll: number;
   pitch: number;
   yaw: number;
+  throttle: number;
 }
 
 /** Сирі детерміновані метрики (шар 1 — див. docs/scoring-algorithm.md). */

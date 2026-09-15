@@ -79,8 +79,8 @@ test('підняття warn_max слайдером пом’якшує верд�
   await expect(page.getByTestId('verdict')).toHaveAttribute('data-verdict', 'warning');
 });
 
-test.describe('3 окремі таблиці метрик — по одній на roll/pitch/yaw', () => {
-  for (const axis of ['roll', 'pitch', 'yaw']) {
+test.describe('4 окремі таблиці метрик — по одній на roll/pitch/yaw/throttle', () => {
+  for (const axis of ['roll', 'pitch', 'yaw', 'throttle']) {
     test(`таблиця ${axis} показує рядок для кожної метрики з розбивкою по осях`, async ({ page }) => {
       // Arrange
       await page.goto('/flight/flight-good');
@@ -113,6 +113,7 @@ test.describe('дискретна кількість корекцій', () => {
     ['roll', 7],
     ['pitch', 5],
     ['yaw', 1],
+    ['throttle', 3],
   ];
 
   for (const [axis, expected] of CASES) {

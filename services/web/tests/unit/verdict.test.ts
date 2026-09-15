@@ -20,10 +20,10 @@ const FULL_THRESHOLDS: Thresholds = {
 };
 
 const GOOD_METRICS: Metrics = {
-  corrections_per_min: { roll: 2, pitch: 1.5, yaw: 0.3 },
-  mean_amplitude: { roll: 0.05, pitch: 0.04, yaw: 0.01 },
-  mean_jerk: { roll: 0.2, pitch: 0.15, yaw: 0.02 },
-  oscillation_time_pct: { roll: 0.02, pitch: 0.01, yaw: 0 },
+  corrections_per_min: { roll: 2, pitch: 1.5, yaw: 0.3, throttle: 0.1 },
+  mean_amplitude: { roll: 0.05, pitch: 0.04, yaw: 0.01, throttle: 0.02 },
+  mean_jerk: { roll: 0.2, pitch: 0.15, yaw: 0.02, throttle: 0.03 },
+  oscillation_time_pct: { roll: 0.02, pitch: 0.01, yaw: 0, throttle: 0 },
   reaction_latency_ms: 200,
 };
 
@@ -121,7 +121,7 @@ describe('computeVerdict — worst-case агрегація', () => {
     // Arrange
     const metrics: Metrics = {
       ...GOOD_METRICS,
-      mean_jerk: { roll: 1.6, pitch: 0.9, yaw: 0.02 },
+      mean_jerk: { roll: 1.6, pitch: 0.9, yaw: 0.02, throttle: 0.03 },
     };
 
     // Act
@@ -135,7 +135,7 @@ describe('computeVerdict — worst-case агрегація', () => {
     // Arrange
     const reordered = {
       reaction_latency_ms: GOOD_METRICS.reaction_latency_ms,
-      mean_jerk: { roll: 1.6, pitch: 0.15, yaw: 0.02 },
+      mean_jerk: { roll: 1.6, pitch: 0.15, yaw: 0.02, throttle: 0.03 },
       oscillation_time_pct: GOOD_METRICS.oscillation_time_pct,
       mean_amplitude: GOOD_METRICS.mean_amplitude,
       corrections_per_min: GOOD_METRICS.corrections_per_min,
@@ -215,7 +215,7 @@ describe('computeVerdict — reasons', () => {
     });
   });
 
-  it('повний набір дає рівно 13 причин (4 метрики × 3 осі + 1 скаляр)', () => {
+  it('повний набір дає рівно 17 причин (4 метрики × 4 осі + 1 скаляр)', () => {
     // Arrange
     const metrics = GOOD_METRICS;
 
@@ -223,7 +223,7 @@ describe('computeVerdict — reasons', () => {
     const result = computeVerdict(metrics, FULL_THRESHOLDS);
 
     // Assert
-    expect(result.reasons).toHaveLength(13);
+    expect(result.reasons).toHaveLength(17);
   });
 });
 
@@ -248,6 +248,7 @@ describe('computeVerdict — деградація вхідних даних', ()
 
     // Assert
     expect(result.reasons.map((r) => r.metric)).toEqual([
+      'mean_amplitude',
       'mean_amplitude',
       'mean_amplitude',
       'mean_amplitude',
@@ -326,9 +327,24 @@ describe('computeVerdict — чистота функції', () => {
 
 describe('correctionsCount — дискретна кількість корекцій', () => {
   it.each([
-    ['типовий випадок', { roll: 4.1796, pitch: 3.7152, yaw: 0 }, 109.2, { roll: 8, pitch: 7, yaw: 0 }],
-    ['точно ціла кількість без округлення', { roll: 6, pitch: 0, yaw: 0 }, 60, { roll: 6, pitch: 0, yaw: 0 }],
-    ['нульова швидкість на всіх осях', { roll: 0, pitch: 0, yaw: 0 }, 90, { roll: 0, pitch: 0, yaw: 0 }],
+    [
+      'типовий випадок',
+      { roll: 4.1796, pitch: 3.7152, yaw: 0, throttle: 2.0 },
+      109.2,
+      { roll: 8, pitch: 7, yaw: 0, throttle: 4 },
+    ],
+    [
+      'точно ціла кількість без округлення',
+      { roll: 6, pitch: 0, yaw: 0, throttle: 3 },
+      60,
+      { roll: 6, pitch: 0, yaw: 0, throttle: 3 },
+    ],
+    [
+      'нульова швидкість на всіх осях',
+      { roll: 0, pitch: 0, yaw: 0, throttle: 0 },
+      90,
+      { roll: 0, pitch: 0, yaw: 0, throttle: 0 },
+    ],
   ] as [string, AxisValues, number, AxisValues][])(
     '%s',
     (_label, correctionsPerMin, analyzedDurationS, expected) => {
@@ -342,13 +358,13 @@ describe('correctionsCount — дискретна кількість корек�
 
   it.each([0, -5])('analyzedDurationS <= 0 (%s) дає нулі на всіх осях', (analyzedDurationS) => {
     // Arrange
-    const correctionsPerMin: AxisValues = { roll: 4, pitch: 3, yaw: 2 };
+    const correctionsPerMin: AxisValues = { roll: 4, pitch: 3, yaw: 2, throttle: 1 };
 
     // Act
     const result = correctionsCount(correctionsPerMin, analyzedDurationS);
 
     // Assert
-    expect(result).toEqual({ roll: 0, pitch: 0, yaw: 0 });
+    expect(result).toEqual({ roll: 0, pitch: 0, yaw: 0, throttle: 0 });
   });
 });
 
