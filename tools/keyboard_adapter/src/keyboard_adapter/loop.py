@@ -63,13 +63,19 @@ def run_loop(
     rate: float = DEFAULT_RATE,
     target: int = 0,
     on_tick: Optional[Callable[[set[str], Mapping[str, float]], None]] = None,
+    should_stop: Optional[Callable[[], bool]] = None,
 ) -> int:
     """Слати MANUAL_CONTROL із частотою `hz` незалежно від подій клавіатури.
 
-    `duration=None` — нескінченно. Повертає кількість відправлених пакетів.
+    `duration=None` — нескінченно (до `Ctrl+C` у CLI, до `should_stop()` у
+    MAVProxy-модулі, де цикл живе у фоновому треді й `Ctrl+C`/`KeyboardInterrupt`
+    його не дістає). Повертає кількість відправлених пакетів.
     `on_tick`, якщо задано, викликається щоразу після відправки пакета з
     (поточні натиснуті клавіші, значення осей) — для живого дебаг-виводу
-    (`cli.py --debug`), без впливу на сам цикл відправки.
+    (`cli.py --debug`), без впливу на сам цикл відправки. `should_stop`,
+    якщо задано, перевіряється щотакту — повернення `True` завершує цикл
+    після поточного пакета (кооперативна зупинка фонового треду, `unload()`
+    модуля).
     """
     period = 1.0 / hz
     state = state if state is not None else AxisState(rate=rate)
@@ -78,7 +84,7 @@ def run_loop(
     start = clock.monotonic()
     prev = start
     sent = 0
-    while total is None or sent < total:
+    while (total is None or sent < total) and (should_stop is None or not should_stop()):
         now = clock.monotonic()
         keys = set(keys_source())
         values = state.step(now - prev, keys)

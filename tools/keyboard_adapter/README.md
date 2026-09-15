@@ -1,7 +1,12 @@
 # keyboard_adapter — клавіатура замість джойстика
 
-Утиліта шле `MANUAL_CONTROL` у SITL ArduPlane з клавіатури, замінюючи фізичний джойстик
-для ручного пілотування.
+Шле `MANUAL_CONTROL` у SITL ArduPlane з клавіатури, замінюючи фізичний джойстик для
+ручного пілотування. **Вантажиться MAVProxy-модулем** (`mavproxy_keyboard_adapter.py`,
+`--load-module keyboard_adapter` — див. `tools/run-sitl.sh`), не окремим процесом:
+ідіоматично для MAVProxy (так само розширюються map/console/antenna-tracker), без
+власного UDP-конекту й очікування heartbeat — `self.master` вже підключений. `cli.py`
+лишається окремо, лише як dev-утиліта для debug (`--dry`) поза MAVProxy — не шлях
+керування польотом (детальніше нижче).
 
 ## Чому клавіатура, а не джойстик
 
@@ -31,59 +36,76 @@
 - Пакети йдуть на фіксованих **20 Гц незалежно від подій клавіатури** — рівномірна
   часова сітка потрібна парсеру.
 
-## Запуск
+## Запуск (продакшн-шлях — MAVProxy-модуль)
+
+```bash
+./tools/run-sitl.sh
+```
+
+Піднімає SITL + MAVProxy (`sim_vehicle.py --mavproxy-args "--load-module
+keyboard_adapter"`) — модуль шукається за іменем файлу (`mavproxy_keyboard_adapter.py`)
+на `PYTHONPATH`, який `run-sitl.sh` виставляє на `tools/keyboard_adapter/src`. Ні `uv
+sync`, ні окремий процес не потрібні — модуль виконується в тому Python-оточенні, де вже
+живе сама MAVProxy (`tools/prereqs.sh` ставить туди `evdev`).
+
+### Клавіатурний бекенд: лише `evdev`
+
+Читає `/dev/input` напряму (kernel input layer) — однаково на Xorg і Wayland, без
+залежності від дисплейного сервера. `pynput` (X11 global-grab) свідомо не використовується:
+той вимагав би саме Xorg-сесії й ламався б на Wayland (типова Ubuntu 22.04+), а оскільки
+продакшн-шлях один (MAVProxy-модуль, не вибір користувача під час запуску) — тримати
+другий бекенд заради Xorg-варіанту сенсу нема, лише зайва гілка коду й тестів.
+
+Потребує групи `input` (`./tools/prereqs.sh`, ідемпотентно; релогін після першого
+додавання). Автовизначення бере перший пристрій із `KEY_A`; якщо обрало не той —
+`KEYBOARD_DEVICE=/dev/input/event3 ./tools/run-sitl.sh` (`ls /dev/input/by-id/` або
+`sudo libinput list-devices`, щоб знайти правильний).
+
+`evdev` не встановлюється на macOS (лінукс-специфічне C-розширення, env-маркер у
+`pyproject.toml`) — це не проблема, бо стенд там і не запускається (`README.mac.md`).
+Не впливає на тести: логіка осей і дешифрування подій ізольовані від реального I/O й
+тестуються без реального `evdev` (`tests/evdev_fakes.py`).
+
+## `cli.py` — окремо, лише dev-debug
+
+`cli.py` (`uv run keyboard-adapter`) лишається як окремий процес, але **не** для
+пілотування — для перевірки перехоплення клавіш/мапінгу осей у ізоляції, без MAVProxy:
 
 ```bash
 uv sync
-uv run keyboard-adapter --connect udp:127.0.0.1:14550
-# опції: --hz 20 --rate 2000 --duration 60
+uv run keyboard-adapter --dry   # без SITL/MAVLink — лише клавіші й осі в консоль
+uv run keyboard-adapter --connect udp:127.0.0.1:14550   # ad hoc, повз MAVProxy-модуль
 ```
 
-Утиліта працює **на хості** (потрібен доступ до клавіатури), поруч із нативним SITL
-(`sim_vehicle.py`, без контейнера — див. `docs/host-prerequisites.md`), і конектиться до
-UDP-порту, який роздає MAVProxy. `pynput`/`evdev` свідомо не входять у серверний образ парсера.
-
-### Бекенд клавіатури: `pynput` чи `evdev`
-
-За замовчуванням — `pynput` (X11 global-grab). На Ubuntu з **Wayland**-сесією (типово
-22.04+) `pynput` не отримує подій узагалі — це архітектурне рішення Wayland про ізоляцію
-застосунків, не помилка бібліотеки. Перевірити сесію: `echo $XDG_SESSION_TYPE`.
-
-Два виходи без зміни логіки осей (`axes.py` від бекенда не залежить):
-
-```bash
-# 1. Сесія Xorg (на екрані логіну обрати "Ubuntu on Xorg") — pynput працює як є.
-uv run keyboard-adapter --input-backend pynput
-
-# 2. evdev — читає /dev/input напряму, працює однаково на Xorg і Wayland.
-#    Потрібна група `input`: `./tools/prereqs.sh` з кореня репозиторію (ідемпотентно) && релогін.
-uv run keyboard-adapter --input-backend evdev
-# або з явним пристроєм, якщо автовизначення (перший з KEY_A) обрало не те:
-uv run keyboard-adapter --input-backend evdev --device /dev/input/event3
-```
-
-`evdev` не встановлюється на macOS (лінукс-специфічне C-розширення, env-маркер у
-`pyproject.toml`) — на macOS доступний лише `pynput` з дозволом Accessibility/Input
-Monitoring для терміналу. Це не впливає на тести жодного з бекендів: логіка осей і
-дешифрування подій ізольовані від реального I/O й тестуються без pynput/evdev.
+Другий варіант відкриває ВЛАСНИЙ UDP-конект до SITL паралельно з MAVProxy-модулем —
+навмисно не використовується `run-sitl.sh` (саме такого дублювання й уникає перехід на
+модуль, CLAUDE.md), корисний лише для точкового ручного дебагу.
 
 ## Структура
 
 ```
-src/keyboard_adapter/
-├── axes.py          # чиста логіка осей (AxisState.step) — тестується без I/O
-├── loop.py          # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
-├── keyboard.py      # бекенд pynput (X11 global-grab; імпорт усередині start())
-├── evdev_source.py  # бекенд evdev (kernel /dev/input; працює на Xorg і Wayland)
-└── cli.py           # entrypoint: pymavlink-конект + вибір бекенда + склейка
+src/
+├── mavproxy_keyboard_adapter.py   # MAVProxy-модуль (MPModule) — ТОНКИЙ shim, поза
+│                                  # пакетом навмисно (MAVProxy шукає модулі за
+│                                  # іменем файлу на PYTHONPATH); [не перевірено живцем]
+└── keyboard_adapter/
+    ├── axes.py           # чиста логіка осей (AxisState.step) — тестується без I/O
+    ├── loop.py            # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
+    ├── mavproxy_glue.py   # ТЕСТОВАНА логіка модуля: тред, адаптація self.master,
+    │                      # кооперативна зупинка — без залежності від пакета MAVProxy
+    ├── evdev_source.py    # клавіатурний бекенд (kernel /dev/input; Xorg і Wayland однаково)
+    └── cli.py             # dev-debug entrypoint (--dry), НЕ шлях пілотування
 ```
 
 Тести: `uv run pytest`. Сценарії та граничні значення — `TEST-PLAN.md`.
 
-Типи: `uv run mypy` — strict-режим на `src/` і `tests/`. `mav`/`clock`/`keys_source`
-описані протоколами (`ManualControlSender`, `Clock`, `KeysSource`), а не `Any`;
-тестові фейки структурно їм відповідають, що mypy перевіряє статично.
-`ignore_missing_imports` увімкнено точково лише для `pymavlink.*`, `pynput.*` і
-`evdev.*` (жоден не постачає stubs). Тести `evdev_source.py` підміняють увесь модуль
+Типи: `uv run mypy` — strict-режим на `src/keyboard_adapter/` і `tests/`. `mav`/`clock`/
+`keys_source`/`link` описані протоколами (`ManualControlSender`, `Clock`, `KeysSource`,
+`MavlinkLink`), а не `Any`; тестові фейки структурно їм відповідають, що mypy перевіряє
+статично. `ignore_missing_imports` увімкнено точково лише для `pymavlink.*` і `evdev.*` (жоден не
+постачає stubs). Тести `evdev_source.py` підміняють увесь модуль
 `evdev` у `sys.modules` фейком (`tests/evdev_fakes.py`) — реальний пакет для прогону
 тестів не потрібен, тож усе працює й на macOS, де `evdev` узагалі не встановлюється.
+`src/mavproxy_keyboard_adapter.py` — поза `mypy`'s `files` (немає пакета `MAVProxy` у
+dev-оточенні) і поза `pytest`; уся логіка з нього винесена в `mavproxy_glue.py` саме
+щоб лишитись типізованою й тестованою — сам shim лише склеює.

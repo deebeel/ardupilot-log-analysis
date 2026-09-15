@@ -11,6 +11,7 @@ from typing import Iterable, List, Mapping, Tuple
 
 from keyboard_adapter.axes import AxisState
 from keyboard_adapter.loop import Clock, KeysSource, ManualControlSender
+from keyboard_adapter.mavproxy_glue import MavlinkLink
 
 ManualControlCall = Tuple[int, int, int, int, int, int]
 
@@ -71,9 +72,19 @@ class ScriptedKeys:
         return list(self.keys)
 
 
-# Статична перевірка: фейки структурно задовольняють протоколи loop.py.
-_PROTOCOL_CONFORMANCE: Tuple[ManualControlSender, Clock, KeysSource] = (
+class FakeLink:
+    """Замість `self.master` у MAVProxy-модулі — `target_system` змінний після
+    створення, щоб симулювати heartbeat апарата, що приходить пізніше."""
+
+    def __init__(self, target_system: int = 0) -> None:
+        self.target_system: int = target_system
+        self.mav: FakeMav = FakeMav()
+
+
+# Статична перевірка: фейки структурно задовольняють протоколи loop.py/mavproxy_glue.py.
+_PROTOCOL_CONFORMANCE: Tuple[ManualControlSender, Clock, KeysSource, MavlinkLink] = (
     FakeMav(),
     FakeClock(),
     ScriptedKeys(),
+    FakeLink(),
 )

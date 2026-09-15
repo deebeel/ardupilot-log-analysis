@@ -138,3 +138,37 @@ def test_loop_on_tick_receives_the_currently_pressed_keys() -> None:
 
     # Assert
     assert seen == [{"w"}]
+
+
+def test_loop_stops_immediately_when_should_stop_is_already_true() -> None:
+    # Arrange
+    mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
+
+    # Act
+    sent = run_loop(mav, keys, clock, hz=20.0, should_stop=lambda: True)
+
+    # Assert
+    assert sent == 0
+
+
+def test_loop_stops_after_should_stop_flips_to_true() -> None:
+    # Arrange
+    mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
+    flips_true_after: list[bool] = [False, False, True]
+
+    # Act
+    sent = run_loop(mav, keys, clock, hz=20.0, should_stop=lambda: flips_true_after.pop(0))
+
+    # Assert
+    assert sent == 2
+
+
+def test_loop_without_should_stop_ignores_it_and_runs_for_the_full_duration() -> None:
+    # Arrange
+    mav, clock, keys = FakeMav(), FakeClock(), ScriptedKeys([])
+
+    # Act
+    sent = run_loop(mav, keys, clock, hz=20.0, duration=0.5)
+
+    # Assert
+    assert sent == 10

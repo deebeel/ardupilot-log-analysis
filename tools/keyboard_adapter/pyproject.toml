@@ -5,10 +5,9 @@ description = "Клавіатура замість джойстика: MANUAL_CO
 requires-python = ">=3.11"
 dependencies = [
     "pymavlink>=2.4.41",
-    "pynput>=1.7.7",
     # Лінукс-специфічний C-розширення пакет (ioctl до /dev/input) — на macOS не
-    # збирається й не потрібен (Wayland-бекенд клавіатури). Маркер платформи не
-    # дає `uv sync` намагатись його ставити поза Linux.
+    # збирається (стенд там і не запускається — README.mac.md). Маркер платформи
+    # не дає `uv sync` намагатись його ставити поза Linux.
     "evdev>=1.7; sys_platform == 'linux'",
 ]
 
@@ -34,7 +33,7 @@ python_version = "3.12"
 files = ["src/keyboard_adapter", "tests"]
 mypy_path = ["src", "tests"]
 
-# pymavlink, pynput і evdev не постачають type stubs — точково, не глобально
+# pymavlink і evdev не постачають type stubs — точково, не глобально
 [[tool.mypy.overrides]]
-module = ["pymavlink.*", "pynput.*", "evdev.*"]
+module = ["pymavlink.*", "evdev.*"]
 ignore_missing_imports = true

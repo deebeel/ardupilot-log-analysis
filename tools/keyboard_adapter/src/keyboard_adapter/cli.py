@@ -8,14 +8,13 @@ import time
 from typing import Callable, Mapping, Optional, Protocol
 
 from .axes import DEFAULT_RATE, AxisState
-from .keyboard import KeyboardSource
+from .evdev_source import EvdevSource
 from .loop import DEFAULT_HZ, ManualControlSender, run_loop
 
 
 class KeySource(Protocol):
-    """Спільний мінімум `KeyboardSource`/`EvdevSource`, потрібний тут: не
-    `start()` (той повертає різні конкретні типи в різних бекендах — виклик
-    робимо одразу після конструювання, ще на конкретному типі)."""
+    """Мінімум `EvdevSource`, потрібний тут: не `start()` (той повертає `EvdevSource`
+    саму — виклик робимо одразу після конструювання, ще на конкретному типі)."""
 
     def snapshot(self) -> set[str]: ...
 
@@ -48,17 +47,10 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--rate", type=float, default=DEFAULT_RATE, help="одиниць/с")
     parser.add_argument("--duration", type=float, default=None, help="секунд (за замовчуванням — до Ctrl+C)")
     parser.add_argument(
-        "--input-backend",
-        choices=["pynput", "evdev"],
-        default="pynput",
-        help="pynput — X11-сесія (Xorg); evdev — Linux, працює й на Wayland "
-        "(потрібна група `input`)",
-    )
-    parser.add_argument(
         "--device",
         default=None,
-        help="шлях до /dev/input/eventN для --input-backend evdev "
-        "(за замовчуванням — автовизначення)",
+        help="шлях до /dev/input/eventN (за замовчуванням — автовизначення); "
+        "потрібна група `input` (./tools/prereqs.sh)",
     )
     parser.add_argument(
         "--debug",
@@ -162,16 +154,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         mav = conn.mav
         target = conn.target_system
 
-    source: KeySource
-    if args.input_backend == "evdev":
-        from .evdev_source import EvdevSource
-
-        source = EvdevSource(device_path=args.device)
-        source.start()
-    else:
-        keyboard_source = KeyboardSource()
-        keyboard_source.start()
-        source = keyboard_source
+    source: KeySource = EvdevSource(device_path=args.device).start()
 
     print("W/S pitch  A/D roll  Q/E yaw  Shift/Ctrl throttle   (Ctrl+C — вихід)")
     try:

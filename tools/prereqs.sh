@@ -45,6 +45,18 @@ else
   echo "Додано $USER до групи input — потрібен релогін (вийти й зайти знову), щоб застосувалось."
 fi
 
+# keyboard-adapter вантажиться MAVProxy-модулем (mavproxy_keyboard_adapter.py, у
+# процесі MAVProxy — CLAUDE.md), не окремим процесом з власним uv-venv. Тому
+# evdev має стояти в ТОМУ Ж Python-оточенні, де install-prereqs-ubuntu.sh щойно
+# поставив саму MAVProxy (--user, без venv) — інакше `--load-module
+# keyboard_adapter` впаде на ImportError. Лише evdev (не pynput — той вимагав би
+# Xorg-сесії, а evdev працює однаково на Xorg і Wayland, тож для єдиного
+# продакшн-шляху сенсу тримати другий бекенд нема). Сам пакет keyboard_adapter/
+# і шим mavproxy_keyboard_adapter.py окремо не встановлюються — run-sitl.sh
+# додає tools/keyboard_adapter/src у PYTHONPATH MAVProxy напряму.
+echo "== evdev в оточення MAVProxy (для keyboard-adapter-модуля) =="
+pip3 install --user --upgrade evdev
+
 cat <<EOF
 
 Готово. .sitl/ на тезі ${ARDUPILOT_TAG}, системні залежності встановлені.
