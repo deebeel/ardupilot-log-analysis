@@ -264,12 +264,11 @@ SITL не контейнеризується (тікет: "у ВМ або на b
 
 ## 6. Makefile (локально)
 
-**Реалізовано** (крім `sitl-up`/`keyboard`/`deploy` — ті йдуть окремо: SITL/keyboard-адаптер
-запускаються нативно на Ubuntu-хості за `docs/host-prerequisites.md`, не з Mac; `deploy` —
-разом із `deploy/deploy.sh`, §7).
+**Реалізовано** (крім `deploy` — разом із `deploy/deploy.sh`, §7). SITL/keyboard-адаптер —
+не Makefile-таргети, а `tools/prereqs.sh`/`tools/run-sitl.sh` (запускаються нативно на
+Ubuntu-хості за `docs/host-prerequisites.md`, не з Mac).
 
 ```
-setup-input-group        # sudo usermod -aG input — делегується з tools/setup-host.sh
 fetch-logs                # dev-зручність: .BIN/.tlog з UTM VM у data/ через ssh/rsync
 stack-up / stack-down    # docker compose -f deploy/compose/docker-compose.yml (parser+web+caddy)
 build                    # buildx, обидва образи (--platform linux/amd64 для VPS-цілі)

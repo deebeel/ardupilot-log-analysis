@@ -10,11 +10,11 @@ COMPOSE := docker compose --project-directory $(COMPOSE_DIR) -f $(COMPOSE_DIR)/d
 PLATFORM ?= linux/amd64
 IMAGES_TAR := dist/images.tar.gz
 
-# Дефолт відповідає docs/host-prerequisites.md; перевизначити можна через
-# .envrc (VM_ARDUPILOT_DIR), якщо клон на VM лежить деінде.
-VM_ARDUPILOT_DIR ?= ~/Documents/ardupilot
+# Дефолт відповідає tools/prereqs.sh (клонує .sitl/ у корені репозиторію на VM);
+# перевизначити можна через .envrc (VM_ARDUPILOT_DIR), якщо клон на VM лежить деінде.
+VM_ARDUPILOT_DIR ?= ~/ardupilot_log_analysis/.sitl
 
-.PHONY: fetch-logs setup-input-group stack-up stack-down build save test parse
+.PHONY: fetch-logs stack-up stack-down build save test parse
 
 # Витягує свіжі .BIN (DataFlash) і .tlog з Ubuntu VM (UTM) на хост-машину,
 # у watched-теку парсера. Це dev-зручність для локальної перевірки пайплайна
@@ -28,17 +28,6 @@ fetch-logs:
 	rsync -avz "$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/logs/" $(INBOX_DIR)/
 	rsync -avz -m --include='*.tlog' --include='*/' --exclude='*' \
 		"$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/" $(INBOX_DIR)/
-
-# Один раз на Ubuntu VM/bare-metal перед `--input-backend evdev` (docs/host-prerequisites.md
-# §5) — /dev/input читається лише членами групи `input` або root. Ідемпотентно: якщо
-# користувач вже в групі, нічого не робить і не питає sudo-пароль вдруге.
-setup-input-group:
-	@if id -nG "$$USER" | tr ' ' '\n' | grep -qx input; then \
-		echo "$$USER вже в групі input"; \
-	else \
-		sudo usermod -aG input "$$USER"; \
-		echo "Додано $$USER до групи input — потрібен релогін (вийти й зайти знову), щоб група застосувалась."; \
-	fi
 
 # Локальний прогін parser+web+caddy тими самими образами й compose-файлом, що й на
 # VPS (deploy/compose/docker-compose.yml) — різниця лише в .env (DOMAIN/TAG/DATA_DIR).

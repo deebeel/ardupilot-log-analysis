@@ -30,43 +30,43 @@ echo $XDG_SESSION_TYPE
 Якщо `wayland` — дивись розділ «keyboard-адаптер під Wayland» нижче. Це не блокер (є `evdev`),
 але впливає на вибір бібліотеки клавіатури.
 
-### 2. Системні залежності + група `input`
-
-Усі кроки цього репозиторію, що потребують `sudo` (apt-пакети, група `input` для
-`evdev`-бекенду клавіатури), зібрані в один скрипт — `sudo`-пароль питається один раз:
+### 2. `uv` (потрібен для keyboard-адаптера, крок 4)
 
 ```bash
-./tools/setup-host.sh
-```
-
-(ArduPilot-специфічний `install-prereqs-ubuntu.sh` — крок 3 нижче, окремо, бо це вже
-власний скрипт ArduPilot після клону його репозиторію.)
-
-### 3. SITL: клон і збірка
-
-`Plane-4.6` — це не гілка, а серія тегів релізів (`Plane-4.6.0`, `Plane-4.6.1`, …). Клонувати
-й перейти на останній `4.6.x`:
-
-```bash
-git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
-cd ardupilot
-git checkout Plane-4.6.3   # звірити реальний останній тег: git tag -l "Plane-4.6.*" --sort=-v:refname | head -1
-git submodule update --init --recursive
-Tools/environment_install/install-prereqs-ubuntu.sh -y
+curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.profile
 ```
 
-`install-prereqs-ubuntu.sh` сам ставить `MAVProxy` і Python-залежності — окремо не потрібно.
+### 3. Одноразовий провіжн: `tools/prereqs.sh`
 
-### 4. Перший запуск SITL + MAVProxy (генерація `.bin`/`.tlog`)
+Один скрипт, один запит `sudo`-пароля, ідемпотентний (повторний прогін безпечний):
+клонує **офіційний апстрім** ArduPilot у гітignored `.sitl/` (не форк, не submodule —
+просто ще одна локальна тека поза git, як `assets/`/`data/`), виставляє пінований тег
+(`Plane-4.6.3` — серія тегів релізів, не гілка; звірити реальний останній `4.6.x`:
+`git -C .sitl tag -l "Plane-4.6.*" --sort=-v:refname | head -1`, перевизначити через
+`ARDUPILOT_TAG=...`), запускає ArduPilot-івський `install-prereqs-ubuntu.sh` (сам ставить
+MAVProxy й Python-залежності), і додає те, що той не покриває — `wireguard-tools`/`rsync`/
+`git-lfs` (доставка логів на VPS) і групу `input` (`evdev`-бекенд клавіатури, крок 4):
 
 ```bash
-cd ~/ardupilot/ArduPlane
-sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map
+./tools/prereqs.sh
 ```
 
-`sim_vehicle.py` компілює (лише перший раз) і піднімає `arduplane`, сам стартує MAVProxy
-з `--console --map`, роздає UDP `14550`. Тестовий політ у консолі MAVProxy:
+Якщо групу `input` щойно додано — релогін (вийти й зайти знову), інакше `evdev` не
+запрацює до наступної сесії.
+
+### 4. `run-sitl`: SITL + MAVProxy + keyboard-адаптер одразу
+
+```bash
+./tools/run-sitl.sh
+```
+
+Піднімає SITL ArduPlane (`sim_vehicle.py`, компілює лише перший раз, сам стартує MAVProxy
+з `--console --map`, роздає UDP `14550`) і keyboard-адаптер (фон) однією командою. Бекенд
+клавіатури — `pynput` за дефолтом (Xorg-сесія); для Wayland: `KEYBOARD_BACKEND=evdev
+./tools/run-sitl.sh` (дивись розділ нижче). `Ctrl+C` зупиняє обидва процеси разом.
+
+Тестовий політ у консолі MAVProxy:
 
 ```
 STABILIZE
@@ -74,26 +74,12 @@ arm throttle
 mode TAKEOFF
 ```
 
-Завершення: `disarm`, потім `Ctrl+C` у терміналі `sim_vehicle.py`.
+Завершення: `disarm`, потім `Ctrl+C`.
 
-`.BIN` (DataFlash) пише сам SITL у `ArduPlane/logs/`; `.tlog` пише MAVProxy там, де його
-запущено. **[не перевірено]** мапі MAVProxy для тайлів потрібен інтернет при першому
-запуску (кешує в `~/.tilecache`) — без мережі буде порожня сітка замість мапи; `--console`
-працює офлайн.
-
-### 5. `uv` і keyboard-адаптер
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.profile
-cd tools/keyboard_adapter
-uv sync
-# Xorg-сесія:
-uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend pynput
-# Wayland-сесія (рекомендовано за підтвердженого Wayland, група `input` потрібна —
-# вже додана кроком 2, `./tools/setup-host.sh`):
-uv run keyboard-adapter --connect udp:127.0.0.1:14550 --input-backend evdev
-```
+`.BIN` (DataFlash) пише сам SITL у `.sitl/ArduPlane/logs/`; `.tlog` пише MAVProxy там, де
+запущено `run-sitl.sh` (корінь репозиторію). **[не перевірено]** мапі MAVProxy для тайлів
+потрібен інтернет при першому запуску (кешує в `~/.tilecache`) — без мережі буде порожня
+сітка замість мапи; `--console` працює офлайн.
 
 #### keyboard-адаптер під Wayland
 
@@ -105,22 +91,21 @@ Ubuntu 22.04+ типово Wayland, де `pynput` (X11 global-grab) не пра�
   «Ubuntu on Xorg». Нуль коду, `pynput` працює як задумано.
 - **`evdev` — працює на Xorg і Wayland однаково**, бо читає клавіші напряму з ядра
   (`/dev/input/eventN`), нижче будь-якого дисплейного сервера. Ціна: користувач у групі
-  `input` (додається кроком 2, `./tools/setup-host.sh`; релогін після першого запуску), і
+  `input` (додається кроком 3, `./tools/prereqs.sh`; релогін після першого запуску), і
   треба знайти пристрій клавіатури (`ls /dev/input/by-id/` або `sudo libinput list-devices`). Це не «фокус вікна», а сирі
   коди з пристрою — спрацює навіть без фокуса на потрібному вікні (для нашого сценарію це
   плюс, ближче до поведінки реального джойстика).
 
   **Рекомендація за підтвердженого Wayland: `evdev`**, щоб не змінювати сесію логіну
-  щоразу. Реалізовано: `uv run keyboard-adapter --input-backend evdev` (автовизначення
-  пристрою, або `--device /dev/input/eventN` явно) — див. `tools/keyboard_adapter/README.md`.
+  щоразу: `KEYBOARD_BACKEND=evdev ./tools/run-sitl.sh` (автовизначення пристрою; явний
+  `--device /dev/input/eventN` — напряму через `tools/keyboard_adapter`, див. його README).
 
 - **[не перевірено]** Може знадобитись доступ до `/dev/input` навіть для `pynput`, якщо
   бібліотека сама піде evdev-шляхом на Wayland (деякі збірки так роблять).
 
 ### Доставка логів і решта
 
-- `wireguard-tools`, `rsync`, `openssh-client` — уже в кроці 2.
-- `git-lfs` — у репо вже налаштований; без нього `.bin`-логи не витягнуться з клону.
+- `wireguard-tools`, `rsync`, `openssh-client`, `git-lfs` — уже в кроці 3 (`tools/prereqs.sh`).
 
 ## macOS (README.mac.md, не оцінюється)
 
