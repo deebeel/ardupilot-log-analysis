@@ -37,11 +37,7 @@ export PATH="$SITL_DIR/Tools/autotest:$PATH"
 
 export PYTHONPATH="$REPO_ROOT/tools/keyboard_adapter/src${PYTHONPATH:+:$PYTHONPATH}"
 
-# speech/graph/horizon — штатні MAVProxy-модулі, не наші: живий фідбек під час
-# клавіатурного пілотування (озвучка режиму/арм/failsafe, графік attitude,
-# намальований авіагоризонт). `horizon` — wxPython (python3-wxgtk4.0, вже в
-# tools/prereqs.sh), решта без додаткових залежностей.
-echo "== SITL ArduPlane + MAVProxy (keyboard_adapter + speech/graph/horizon модулями) =="
+echo "== SITL ArduPlane + MAVProxy (keyboard_adapter модулем) =="
 cd "$SITL_DIR/ArduPlane"
 sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map \
-  --mavproxy-args "--load-module keyboard_adapter --load-module speech --load-module graph --load-module horizon"
+  --mavproxy-args "--load-module keyboard_adapter"

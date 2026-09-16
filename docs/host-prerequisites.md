@@ -57,17 +57,10 @@ MAVProxy й Python-залежності), і додає те, що той не �
 
 Піднімає SITL ArduPlane (`sim_vehicle.py`, компілює лише перший раз) і сам стартує
 MAVProxy з `--console --map`, роздає UDP `14550`. keyboard-адаптер — **не окремий
-процес**, а MAVProxy-модуль (`mavproxy_keyboard_adapter.py`), що вантажиться разом з
-MAVProxy через `--mavproxy-args` — ідіоматичний спосіб розширювати MAVProxy (так само
-map/console), без власного UDP-конекту й очікування heartbeat. Разом з
-`keyboard_adapter` вантажаться ще три штатні MAVProxy-модулі — живий фідбек під час
-керування, коли очі на карті/консолі, а руки на клавіатурі:
-
-- **`speech`** — озвучує зміну режиму, arm/disarm, попередження/failsafe.
-- **`graph`** — живий графік будь-якого MAVLink-поля (напр. `graph ATTITUDE.roll
-  ATTITUDE.pitch` у консолі MAVProxy).
-- **`horizon`** — намальований авіагоризонт (окреме `wx`-вікно); потребує
-  `python3-wxgtk4.0`, вже в `tools/prereqs.sh`.
+процес**, а MAVProxy-модуль (`init()` у `keyboard_adapter/__init__.py`), що
+вантажиться разом з MAVProxy через `--mavproxy-args` — ідіоматичний спосіб
+розширювати MAVProxy (так само map/console), без власного UDP-конекту й очікування
+heartbeat.
 
 Клавіатурний бекенд — `evdev` (kernel `/dev/input`, однаково на Xorg і Wayland —
 дивись розділ нижче), автовизначення пристрою; `Ctrl+C` зупиняє MAVProxy, а разом з

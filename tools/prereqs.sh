@@ -33,17 +33,9 @@ git -C "$SITL_DIR" submodule update --init --recursive
 echo "== ArduPilot install-prereqs (важкий, sudo викликає сам усередині) =="
 "$SITL_DIR/Tools/environment_install/install-prereqs-ubuntu.sh" -y
 
-# python3-wxgtk4.0 — для MAVProxy-модуля `horizon` (авіагоризонт, run-sitl.sh).
-# Саме apt-пакет (не `pip3 install wxPython`): PyPI не публікує прекомпільовані
-# wheel-и wxPython під linux/aarch64 (наша VM — arm64), тож pip зібрав би його з
-# джерела. Насправді ArduPilot-івський install-prereqs-ubuntu.sh усе одно робить
-# `pip install -U wxpython` і компілює свою копію — apt-пакет тут в основному про
-# venv-ardupilot (нижче) з `--system-site-packages`: якби воно там ще не стояло,
-# system dist-packages підхопився б без окремого зібраного колеса.
-echo "== Додаткові системні пакети (не ArduPilot-специфіка): WireGuard-клієнт, доставка логів, =="
-echo "== GUI-тулкіт для MAVProxy-модуля horizon =="
+echo "== Додаткові системні пакети (не ArduPilot-специфіка): WireGuard-клієнт, доставка логів =="
 sudo apt-get update
-sudo apt-get install -y wireguard-tools rsync openssh-client git-lfs python3-wxgtk4.0
+sudo apt-get install -y wireguard-tools rsync openssh-client git-lfs
 
 echo "== Група input (keyboard-adapter --input-backend evdev) =="
 if id -nG "$USER" | tr ' ' '\n' | grep -qx input; then
