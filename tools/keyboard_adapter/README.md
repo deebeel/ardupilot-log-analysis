@@ -1,12 +1,13 @@
 # keyboard_adapter — клавіатура замість джойстика
 
 Шле `MANUAL_CONTROL` у SITL ArduPlane з клавіатури, замінюючи фізичний джойстик для
-ручного пілотування. **Вантажиться MAVProxy-модулем** (`mavproxy_keyboard_adapter.py`,
-`--load-module keyboard_adapter` — див. `tools/run-sitl.sh`), не окремим процесом:
-ідіоматично для MAVProxy (так само розширюються map/console/antenna-tracker), без
-власного UDP-конекту й очікування heartbeat — `self.master` вже підключений. `cli.py`
-лишається окремо, лише як dev-утиліта для debug (`--dry`) поза MAVProxy — не шлях
-керування польотом (детальніше нижче).
+ручного пілотування. **Вантажиться MAVProxy-модулем** (`init()` у
+`keyboard_adapter/__init__.py`, `--load-module keyboard_adapter` — див.
+`tools/run-sitl.sh`), не окремим процесом: ідіоматично для MAVProxy (так само
+розширюються map/console/antenna-tracker), без власного UDP-конекту й очікування
+heartbeat — `self.master` вже підключений. `cli.py` лишається окремо, лише як
+dev-утиліта для debug (`--dry`) поза MAVProxy — не шлях керування польотом
+(детальніше нижче).
 
 ## Чому клавіатура, а не джойстик
 
@@ -43,10 +44,12 @@
 ```
 
 Піднімає SITL + MAVProxy (`sim_vehicle.py --mavproxy-args "--load-module
-keyboard_adapter"`) — модуль шукається за іменем файлу (`mavproxy_keyboard_adapter.py`)
-на `PYTHONPATH`, який `run-sitl.sh` виставляє на `tools/keyboard_adapter/src`. Ні `uv
-sync`, ні окремий процес не потрібні — модуль виконується в тому Python-оточенні, де вже
-живе сама MAVProxy (`tools/prereqs.sh` ставить туди `evdev`).
+keyboard_adapter"`). **Живцем виявлено**: MAVProxy для стороннього модуля імпортує
+голе ім'я `keyboard_adapter` (не `mavproxy_keyboard_adapter`) — тобто саме цей пакет,
+з `init()` у його `__init__.py`; `PYTHONPATH` (`run-sitl.sh` виставляє на
+`tools/keyboard_adapter/src`) потрібен, щоб пакет узагалі був видимий. Ні `uv sync`,
+ні окремий процес не потрібні — модуль виконується в тому Python-оточенні, де вже
+живе сама MAVProxy (`~/venv-ardupilot`, `tools/prereqs.sh` ставить туди `evdev`).
 
 ### Клавіатурний бекенд: лише `evdev`
 
@@ -84,28 +87,36 @@ uv run keyboard-adapter --connect udp:127.0.0.1:14550   # ad hoc, повз MAVPr
 ## Структура
 
 ```
-src/
-├── mavproxy_keyboard_adapter.py   # MAVProxy-модуль (MPModule) — ТОНКИЙ shim, поза
-│                                  # пакетом навмисно (MAVProxy шукає модулі за
-│                                  # іменем файлу на PYTHONPATH); [не перевірено живцем]
-└── keyboard_adapter/
-    ├── axes.py           # чиста логіка осей (AxisState.step) — тестується без I/O
-    ├── loop.py            # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
-    ├── mavproxy_glue.py   # ТЕСТОВАНА логіка модуля: тред, адаптація self.master,
-    │                      # кооперативна зупинка — без залежності від пакета MAVProxy
-    ├── evdev_source.py    # клавіатурний бекенд (kernel /dev/input; Xorg і Wayland однаково)
-    └── cli.py             # dev-debug entrypoint (--dry), НЕ шлях пілотування
+src/keyboard_adapter/
+├── __init__.py         # init(mpstate) — MAVProxy-конвенція завантаження модуля
+│                       # (лінива імпортація MAVProxy.modules.lib.mp_module,
+│                       # MPModule-підклас визначено ЛОКАЛЬНО всередині init(),
+│                       # щоб решта пакета лишалась імпортовною без MAVProxy)
+├── axes.py             # чиста логіка осей (AxisState.step) — тестується без I/O
+├── loop.py             # цикл 20 Гц + формування MANUAL_CONTROL (duck-typed залежності)
+├── mavproxy_glue.py     # ТЕСТОВАНА логіка модуля: тред, адаптація self.master,
+│                        # кооперативна зупинка — без залежності від пакета MAVProxy
+├── evdev_source.py      # клавіатурний бекенд (kernel /dev/input; Xorg і Wayland однаково)
+└── cli.py               # dev-debug entrypoint (--dry), НЕ шлях пілотування
 ```
+
+**Живцем виявлено:** MAVProxy шукає сторонні модулі не за файлом `mavproxy_<name>.py`
+на `PYTHONPATH` (це працює лише для модулів усередині самого пакета MAVProxy) — для
+`--load-module keyboard_adapter` фолбек-шлях імпортує голе ім'я `keyboard_adapter`.
+Перша спроба (окремий top-level `mavproxy_keyboard_adapter.py` поряд із пакетом)
+падала: `import keyboard_adapter` знаходив сам пакет, не той файл — `ERROR ... has no
+attribute 'init'`. Тому `init()` живе прямо в `__init__.py`, а не в окремому shim-файлі.
 
 Тести: `uv run pytest`. Сценарії та граничні значення — `TEST-PLAN.md`.
 
 Типи: `uv run mypy` — strict-режим на `src/keyboard_adapter/` і `tests/`. `mav`/`clock`/
 `keys_source`/`link` описані протоколами (`ManualControlSender`, `Clock`, `KeysSource`,
 `MavlinkLink`), а не `Any`; тестові фейки структурно їм відповідають, що mypy перевіряє
-статично. `ignore_missing_imports` увімкнено точково лише для `pymavlink.*` і `evdev.*` (жоден не
-постачає stubs). Тести `evdev_source.py` підміняють увесь модуль
-`evdev` у `sys.modules` фейком (`tests/evdev_fakes.py`) — реальний пакет для прогону
-тестів не потрібен, тож усе працює й на macOS, де `evdev` узагалі не встановлюється.
-`src/mavproxy_keyboard_adapter.py` — поза `mypy`'s `files` (немає пакета `MAVProxy` у
-dev-оточенні) і поза `pytest`; уся логіка з нього винесена в `mavproxy_glue.py` саме
-щоб лишитись типізованою й тестованою — сам shim лише склеює.
+статично. `ignore_missing_imports` увімкнено точково лише для `pymavlink.*`, `evdev.*` і
+`MAVProxy.*` (жоден не постачає stubs; `MAVProxy` і зовсім не встановлений у
+dev-оточенні — лише в ArduPilot-оточенні на Ubuntu-хості). Тести `evdev_source.py`
+підміняють увесь модуль `evdev` у `sys.modules` фейком (`tests/evdev_fakes.py`) —
+реальний пакет для прогону тестів не потрібен, тож усе працює й на macOS, де `evdev`
+узагалі не встановлюється. `__init__.py`'s `init()` лишається неперевіреним
+mypy/pytest (той самий принцип, що раніше — MAVProxy-залежна частина мінімальна й
+лінива), уся тестована логіка — в `mavproxy_glue.py`.

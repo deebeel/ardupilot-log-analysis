@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Піднімає SITL ArduPlane + MAVProxy (--console --map — GCS і 2D-візуалізатор
 # одним рішенням, CLAUDE.md). keyboard-adapter НЕ окремий процес — MAVProxy-
-# модуль (mavproxy_keyboard_adapter.py), що вантажиться в сам процес MAVProxy
-# через --mavproxy-args "--load-module keyboard_adapter" (CLAUDE.md: свідомий
-# компроміс — упаде MAVProxy, впаде й керування; падіння ОКРЕМОГО модуля,
-# напр. map, керування клавіатурою не чіпає). Модуль шукається за іменем
-# файлу на PYTHONPATH, не через pip install — звідси експорт нижче.
+# модуль (`init()` у keyboard_adapter/__init__.py), що вантажиться в сам
+# процес MAVProxy через --mavproxy-args "--load-module keyboard_adapter"
+# (CLAUDE.md: свідомий компроміс — упаде MAVProxy, впаде й керування; падіння
+# ОКРЕМОГО модуля, напр. map, керування клавіатурою не чіпає). MAVProxy для
+# сторонніх модулів імпортує голе ім'я `keyboard_adapter` (наш пакет) — не
+# `mavproxy_keyboard_adapter.py`, звідси PYTHONPATH нижче саме на src/, а не
+# pip install.
 # Клавіатурний бекенд — лише evdev (kernel /dev/input, однаково на Xorg і
 # Wayland, потребує групи `input` — ./tools/prereqs.sh); KEYBOARD_DEVICE=
 # /dev/input/eventN, якщо автовизначення обрало не той пристрій.

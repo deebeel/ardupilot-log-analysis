@@ -33,7 +33,8 @@ python_version = "3.12"
 files = ["src/keyboard_adapter", "tests"]
 mypy_path = ["src", "tests"]
 
-# pymavlink і evdev не постачають type stubs — точково, не глобально
+# pymavlink і evdev не постачають type stubs; MAVProxy взагалі не встановлено
+# в dev-оточенні (лише в ArduPilot-оточенні на Ubuntu-хості) — точково, не глобально
 [[tool.mypy.overrides]]
-module = ["pymavlink.*", "evdev.*"]
+module = ["pymavlink.*", "evdev.*", "MAVProxy.*"]
 ignore_missing_imports = true
