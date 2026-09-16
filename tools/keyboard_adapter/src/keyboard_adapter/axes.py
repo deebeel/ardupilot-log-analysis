@@ -26,8 +26,8 @@ KEYMAP: Final[dict[str, tuple[str, int]]] = {
     "a": ("roll", -1),
     "e": ("yaw", +1),
     "q": ("yaw", -1),
-    "shift": ("throttle", +1),
-    "ctrl": ("throttle", -1),
+    "up": ("throttle", +1),
+    "down": ("throttle", -1),
 }
 
 

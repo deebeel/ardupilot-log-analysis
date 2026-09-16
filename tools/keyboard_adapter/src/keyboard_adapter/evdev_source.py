@@ -9,11 +9,11 @@ layer, того самого рівня, звідки дані бере сам �
 реально відкривають пристрій (`start()`, `find_keyboard_device()`); сам
 модуль лишається імпортовним і тестовним на будь-якій платформі.
 
-Відоме обмеження (той самий клас компромісу, що й `directions()` в `axes.py`
-для протилежних клавіш): обидва фізичні Shift і обидва Ctrl мапляться на ОДНЕ
-логічне ім'я (`"shift"`/`"ctrl"`), тому одночасне натискання Left+Right Shift
-з наступним відпусканням лише одного з них передчасно зніме "shift" зі стану.
-Для клавіатурного керування літаком це не сценарій польоту.
+Тротл — на `Up`/`Down` (не `Shift`/`Ctrl`): останні — типові модифікатори під
+час друку команд у консолі `MAV>` (велика буква, `Ctrl+C`), і сирий kernel-
+рівень `evdev` бачив би їх незалежно від фокуса вікна, включаючи тротл під час
+друку. `Up`/`Down` у звичайному тексті команд не з'являються, тож конфлікту
+нема.
 """
 
 from __future__ import annotations
@@ -32,10 +32,8 @@ KEYCODE_TO_NAME: Final[dict[int, str]] = {
     32: "d",  # KEY_D
     16: "q",  # KEY_Q
     18: "e",  # KEY_E
-    42: "shift",  # KEY_LEFTSHIFT
-    54: "shift",  # KEY_RIGHTSHIFT
-    29: "ctrl",  # KEY_LEFTCTRL
-    97: "ctrl",  # KEY_RIGHTCTRL
+    103: "up",  # KEY_UP
+    108: "down",  # KEY_DOWN
 }
 
 #: `InputEvent.type` для клавіатурних подій (`EV_KEY` у Linux `input.h`).
@@ -63,6 +61,8 @@ class Device(Protocol):
 
     def read_loop(self) -> Iterable[InputEventLike]: ...
 
+    def read(self) -> Iterable[InputEventLike]: ...
+
     def close(self) -> None: ...
 
 
@@ -85,6 +85,21 @@ def find_keyboard_device() -> str:
         "групі `input` (sudo usermod -aG input $USER, потім релогін) або "
         "вкажіть пристрій явно через --device (див. ls /dev/input/by-id/)."
     )
+
+
+def find_keyboard_device_or_none() -> Optional[str]:
+    """Те саме, що find_keyboard_device(), але без винятку — None, якщо нема.
+
+    Для MAVProxy-модуля (__init__.py): відсутність клавіатури при вході в
+    ручний режим — не помилка, що має класти MAVProxy, лише привід не
+    запускати керування й написати про це в консоль. cli.py/--dry лишається
+    на варіанті, що кидає виняток (явна помилка зручніша для одноразового
+    dev-дебагу, ніж мовчазний None).
+    """
+    try:
+        return find_keyboard_device()
+    except RuntimeError:
+        return None
 
 
 class EvdevSource:
@@ -133,11 +148,26 @@ class EvdevSource:
             if not self._stop_event.is_set():
                 raise
 
+    def _discard_buffered_events(self, device: Device) -> None:
+        """Скинути події, що вже накопичились у пристрої до старту читання.
+
+        Щойно фізично підключений (hot-plug) або щойно повернутий з режиму
+        сну девайс може мати "дзвін" контактів у своєму kernel-буфері —
+        `device.read()` (на відміну від `read_loop()`) не блокує й повертає
+        лише те, що вже є, тож придатний рівно для одноразового зливу перед
+        тим, як `_run()` почне трактувати події як реальні натискання."""
+        try:
+            for _ in device.read():
+                pass
+        except (BlockingIOError, OSError):
+            pass
+
     def start(self) -> "EvdevSource":
         import evdev  # локальний імпорт — див. докстрінг модуля
 
         path = self._device_path or find_keyboard_device()
         device: Device = evdev.InputDevice(path)
+        self._discard_buffered_events(device)
         self._device = device
         thread = threading.Thread(target=self._run, args=(device,), daemon=True)
         self._thread = thread
@@ -169,5 +199,6 @@ __all__: List[str] = [
     "KEYCODE_TO_NAME",
     "EvdevSource",
     "find_keyboard_device",
+    "find_keyboard_device_or_none",
     "normalize_evdev",
 ]

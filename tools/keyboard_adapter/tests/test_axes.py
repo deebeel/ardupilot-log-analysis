@@ -185,7 +185,7 @@ def test_press_release_press_resumes_from_current_value() -> None:
 
 
 # 14, 15
-@pytest.mark.parametrize("key, expected", [("shift", 500.0), ("ctrl", -500.0)])
+@pytest.mark.parametrize("key, expected", [("up", 500.0), ("down", -500.0)])
 def test_throttle_keys_move_throttle_in_expected_direction(key: str, expected: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
@@ -201,7 +201,7 @@ def test_throttle_keys_move_throttle_in_expected_direction(key: str, expected: f
 def test_throttle_holds_value_after_release() -> None:
     # Arrange
     state = AxisState(rate=RATE)
-    advance(state, 0.05, ["shift"], n=5)  # 500
+    advance(state, 0.05, ["up"], n=5)  # 500
 
     # Act
     values = advance(state, 0.05, [], n=20)
@@ -211,7 +211,7 @@ def test_throttle_holds_value_after_release() -> None:
 
 
 # 17
-@pytest.mark.parametrize("key, expected", [("shift", RANGE), ("ctrl", -RANGE)])
+@pytest.mark.parametrize("key, expected", [("up", RANGE), ("down", -RANGE)])
 def test_throttle_is_clipped_to_range(key: str, expected: float) -> None:
     # Arrange
     state = AxisState(rate=RATE)
@@ -227,10 +227,10 @@ def test_throttle_is_clipped_to_range(key: str, expected: float) -> None:
 def test_throttle_with_both_keys_held_holds_value() -> None:
     # Arrange
     state = AxisState(rate=RATE)
-    advance(state, 0.05, ["shift"], n=5)  # 500
+    advance(state, 0.05, ["up"], n=5)  # 500
 
     # Act
-    values = advance(state, 0.05, ["shift", "ctrl"], n=10)
+    values = advance(state, 0.05, ["up", "down"], n=10)
 
     # Assert
     assert values["throttle"] == pytest.approx(500.0)
@@ -246,8 +246,8 @@ def test_throttle_with_both_keys_held_holds_value() -> None:
         ("d", "roll"),
         ("q", "yaw"),
         ("e", "yaw"),
-        ("shift", "throttle"),
-        ("ctrl", "throttle"),
+        ("up", "throttle"),
+        ("down", "throttle"),
     ],
 )
 def test_key_moves_only_its_own_axis(key: str, axis: str) -> None:

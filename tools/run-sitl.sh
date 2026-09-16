@@ -2,15 +2,19 @@
 # Піднімає SITL ArduPlane + MAVProxy (--console --map — GCS і 2D-візуалізатор
 # одним рішенням, CLAUDE.md). keyboard-adapter НЕ окремий процес — MAVProxy-
 # модуль (`init()` у keyboard_adapter/__init__.py), що вантажиться в сам
-# процес MAVProxy через --mavproxy-args "--load-module keyboard_adapter"
-# (CLAUDE.md: свідомий компроміс — упаде MAVProxy, впаде й керування; падіння
-# ОКРЕМОГО модуля, напр. map, керування клавіатурою не чіпає). MAVProxy для
-# сторонніх модулів імпортує голе ім'я `keyboard_adapter` (наш пакет) — не
-# `mavproxy_keyboard_adapter.py`, звідси PYTHONPATH нижче саме на src/, а не
-# pip install.
+# процес MAVProxy через --mavproxy-args "--load-module keyboard_adapter
+# --load-module horizon" (CLAUDE.md: свідомий компроміс — упаде MAVProxy,
+# впаде й керування; падіння ОКРЕМОГО модуля, напр. map, керування
+# клавіатурою не чіпає). MAVProxy для сторонніх модулів імпортує голе ім'я
+# `keyboard_adapter` (наш пакет) — не `mavproxy_keyboard_adapter.py`, звідси
+# PYTHONPATH нижче саме на src/, а не pip install. `horizon` — штатний
+# MAVProxy-модуль (wx-авіагоризонт), живий фідбек під час ручного пілотування
+# без потреби дивитись на --map/--console.
 # Клавіатурний бекенд — лише evdev (kernel /dev/input, однаково на Xorg і
 # Wayland, потребує групи `input` — ./tools/prereqs.sh); KEYBOARD_DEVICE=
 # /dev/input/eventN, якщо автовизначення обрало не той пристрій.
+# keyboard_adapter НЕ керує сам по собі — треба `kb on` у консолі MAV> (окрім
+# FBWA + armed, docs/host-prerequisites.md крок 3).
 # Без sudo, повторюваний — викликати перед кожним польотом, після одноразового
 # ./tools/prereqs.sh.
 set -euo pipefail
@@ -37,7 +41,19 @@ export PATH="$SITL_DIR/Tools/autotest:$PATH"
 
 export PYTHONPATH="$REPO_ROOT/tools/keyboard_adapter/src${PYTHONPATH:+:$PYTHONPATH}"
 
-echo "== SITL ArduPlane + MAVProxy (keyboard_adapter модулем) =="
+LOGDIR="$SITL_DIR/ArduPlane/logs"
+TLOG="$LOGDIR/mav.tlog"
+mkdir -p "$LOGDIR"
+
+# Автоматична доставка логів на VPS (RND-254, критерій приймання — не dev-
+# зручність) — окремий фоновий процес (tools/push-logs.sh), не частина самого
+# MAVProxy/SITL; живе, поки живий цей скрипт, вимикається разом з ним (trap).
+"$REPO_ROOT/tools/push-logs.sh" &
+PUSH_LOGS_PID=$!
+trap 'kill "$PUSH_LOGS_PID" 2>/dev/null || true' EXIT
+
+echo "== SITL ArduPlane + MAVProxy (keyboard_adapter + horizon модулями) =="
+echo "   .BIN та .tlog: $LOGDIR (push-logs.sh у фоні, pid $PUSH_LOGS_PID)"
 cd "$SITL_DIR/ArduPlane"
 sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map \
-  --mavproxy-args "--load-module keyboard_adapter"
+  --mavproxy-args "--load-module keyboard_adapter --load-module horizon --logfile $TLOG"

@@ -6,8 +6,65 @@ from __future__ import annotations
 
 import time
 
-from keyboard_adapter.mavproxy_glue import MasterSender, start_control_thread
+import pytest
+
+from keyboard_adapter.mavproxy_glue import (
+    MasterSender,
+    is_manual_flight_mode,
+    should_control,
+    start_control_thread,
+)
 from helpers import FakeLink, ScriptedKeys
+
+
+@pytest.mark.parametrize(
+    ("flightmode", "expected"),
+    [
+        ("FBWA", True),
+        ("MANUAL", False),
+        ("STABILIZE", False),
+        ("ACRO", False),
+        ("TRAINING", False),
+        ("AUTO", False),
+        ("RTL", False),
+        ("CIRCLE", False),
+        ("GUIDED", False),
+        ("UNKNOWN", False),
+    ],
+)
+def test_is_manual_flight_mode_classifies_arduplane_modes(flightmode: str, expected: bool) -> None:
+    # Arrange
+    # (flightmode, expected — параметри)
+
+    # Act
+    result = is_manual_flight_mode(flightmode)
+
+    # Assert
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    ("flightmode", "armed", "kb_enabled", "expected"),
+    [
+        ("FBWA", True, True, True),
+        ("FBWA", True, False, False),
+        ("FBWA", False, True, False),
+        ("FBWA", False, False, False),
+        ("AUTO", True, True, False),
+        ("RTL", True, True, False),
+    ],
+)
+def test_should_control_requires_fbwa_and_armed_and_kb_enabled(
+    flightmode: str, armed: bool, kb_enabled: bool, expected: bool
+) -> None:
+    # Arrange
+    # (flightmode, armed, kb_enabled, expected — параметри)
+
+    # Act
+    result = should_control(flightmode, armed, kb_enabled)
+
+    # Assert
+    assert result is expected
 
 
 def test_master_sender_reads_target_system_live_from_the_link() -> None:

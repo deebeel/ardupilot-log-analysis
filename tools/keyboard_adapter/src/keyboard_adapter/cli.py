@@ -156,7 +156,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     source: KeySource = EvdevSource(device_path=args.device).start()
 
-    print("W/S pitch  A/D roll  Q/E yaw  Shift/Ctrl throttle   (Ctrl+C — вихід)")
+    print("W/S pitch  A/D roll  Q/E yaw  Up/Down throttle   (Ctrl+C — вихід)")
     try:
         run_loop(
             mav,

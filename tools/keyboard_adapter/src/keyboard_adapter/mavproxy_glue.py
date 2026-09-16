@@ -2,20 +2,44 @@
 
 Ні тут, ні в `loop.py`/`axes.py` не імпортується сам пакет `MAVProxy` — той
 ставиться лише разом з ArduPilot на Ubuntu-хості (`tools/prereqs.sh`), не в
-dev-оточенні цього репозиторію. Кореневий (поза цим пакетом, щоб MAVProxy
-знайшов його за іменем файлу) shim `mavproxy_keyboard_adapter.py` лише
-підключає це до `MAVProxy.modules.lib.mp_module.MPModule` — уся логіка
-життєвого циклу фонового треду і адаптації MAVProxy-лінка тестується тут.
+dev-оточенні цього репозиторію. `__init__.py`'s `init()` (лінива імпортація
+`MAVProxy.modules.lib.mp_module.MPModule`, локальний підклас) — єдине місце,
+що реально залежить від MAVProxy; уся логіка життєвого циклу фонового треду
+і адаптації MAVProxy-лінка тестується тут.
 """
 
 from __future__ import annotations
 
 import threading
 import time
-from typing import Protocol
+from typing import Final, FrozenSet, Protocol
 
 from .axes import DEFAULT_RATE, AxisState
 from .loop import DEFAULT_HZ, KeysSource, ManualControlSender, run_loop
+
+#: Єдиний режим ArduPlane, де клавіатурний ввід реально включається — свідомо
+#: звужено до самого FBWA (не весь набір "ручних" режимів), за прямим
+#: запитом: простіше й передбачуваніше, ніж підтримувати список і toggle-
+#: клавіші для призупинки під час друку команд у MAV>. Звірено з
+#: `master.flightmode` (pymavlink сам оновлює це поле на кожен HEARTBEAT,
+#: `mavutil.py: mode_string_v10`) — модуль лише читає, нічого не парсить сам.
+MANUAL_FLIGHT_MODES: Final[FrozenSet[str]] = frozenset({"FBWA"})
+
+
+def is_manual_flight_mode(flightmode: str) -> bool:
+    return flightmode in MANUAL_FLIGHT_MODES
+
+
+def should_control(flightmode: str, armed: bool, kb_enabled: bool) -> bool:
+    """Чи має клавіатурний тред зараз слати `MANUAL_CONTROL`.
+
+    Три незалежні ворота, усі мають виконуватись одночасно: `FBWA` +
+    озброєний (як і раніше — вихід із FBWA в будь-який інший режим І дизарм,
+    навіть без зміни режиму, однаково зупиняють керування) + `kb_enabled`
+    (явний `kb on`/`kb off` у консолі MAVProxy — за замовчуванням `False`,
+    тобто адаптер НЕ підхоплює керування сам щойно виконались перші дві
+    умови, доки пілот не ввімкне його свідомо)."""
+    return is_manual_flight_mode(flightmode) and armed and kb_enabled
 
 
 class MavlinkLink(Protocol):

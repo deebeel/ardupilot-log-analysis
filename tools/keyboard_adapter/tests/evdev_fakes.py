@@ -27,14 +27,24 @@ class FakeInputDevice:
         capabilities: Dict[int, List[int]],
         events: Iterable[FakeEvent] = (),
         raises_after: "BaseException | None" = None,
+        pending_events: Iterable[FakeEvent] = (),
     ) -> None:
         self._capabilities: Dict[int, List[int]] = capabilities
         self._events: List[FakeEvent] = list(events)
         self._raises_after: "BaseException | None" = raises_after
+        # Події, "накопичені" пристроєм до старту читання (hot-plug дзвін
+        # контактів) — `read()` (не `read_loop()`) віддає їх рівно один раз,
+        # для перевірки, що `EvdevSource.start()` їх скидає, а не трактує
+        # як реальні натискання (E?? TEST-PLAN, буфер перед стартом).
+        self._pending_events: List[FakeEvent] = list(pending_events)
         self.closed: bool = False
 
     def capabilities(self) -> Dict[int, List[int]]:
         return self._capabilities
+
+    def read(self) -> Iterable[FakeEvent]:
+        pending, self._pending_events = self._pending_events, []
+        yield from pending
 
     def read_loop(self) -> Iterable[FakeEvent]:
         yield from self._events

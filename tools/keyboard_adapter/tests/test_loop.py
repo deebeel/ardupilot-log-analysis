@@ -95,7 +95,7 @@ def test_loop_ramps_throttle_into_packets_without_spring_return() -> None:
     # Arrange
     mav, clock = FakeMav(), FakeClock()
     state = AxisState(rate=RATE)
-    run_loop(mav, ScriptedKeys(["shift"]), clock, hz=20.0, duration=0.25, state=state)
+    run_loop(mav, ScriptedKeys(["up"]), clock, hz=20.0, duration=0.25, state=state)
 
     # Act
     run_loop(mav, ScriptedKeys([]), clock, hz=20.0, duration=0.5, state=state)

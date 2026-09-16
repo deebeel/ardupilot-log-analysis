@@ -14,15 +14,14 @@ from keyboard_adapter.evdev_source import (
     KEY_UP,
     EvdevSource,
     find_keyboard_device,
+    find_keyboard_device_or_none,
     normalize_evdev,
 )
 
 KEY_W = 17
 KEY_A = 30
-KEY_LEFTSHIFT = 42
-KEY_RIGHTSHIFT = 54
-KEY_LEFTCTRL = 29
-KEY_RIGHTCTRL = 97
+KEYCODE_UP = 103
+KEYCODE_DOWN = 108
 KEY_ESC = 1
 EV_SYN = 0
 
@@ -35,10 +34,8 @@ EV_SYN = 0
     [
         (KEY_W, "w"),
         (KEY_A, "a"),
-        (KEY_LEFTSHIFT, "shift"),
-        (KEY_RIGHTSHIFT, "shift"),
-        (KEY_LEFTCTRL, "ctrl"),
-        (KEY_RIGHTCTRL, "ctrl"),
+        (KEYCODE_UP, "up"),
+        (KEYCODE_DOWN, "down"),
     ],
 )
 def test_normalize_evdev_maps_known_codes(code: int, expected: str) -> None:
@@ -255,6 +252,39 @@ def test_find_keyboard_device_returns_first_match_in_order(monkeypatch: pytest.M
     assert result == "/dev/input/event1"
 
 
+# --- find_keyboard_device_or_none ---------------------------------------------
+
+
+def test_find_keyboard_device_or_none_returns_path_when_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    keyboard = FakeInputDevice(capabilities={FakeEcodes.EV_KEY: [KEY_A]})
+    fake_module = FakeEvdevModule(devices={"/dev/input/event3": keyboard})
+    monkeypatch.setitem(sys.modules, "evdev", fake_module)
+
+    # Act
+    result = find_keyboard_device_or_none()
+
+    # Assert
+    assert result == "/dev/input/event3"
+
+
+def test_find_keyboard_device_or_none_returns_none_when_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    mouse = FakeInputDevice(capabilities={FakeEcodes.EV_KEY: [272]})  # BTN_LEFT, не KEY_A
+    fake_module = FakeEvdevModule(devices={"/dev/input/event0": mouse})
+    monkeypatch.setitem(sys.modules, "evdev", fake_module)
+
+    # Act
+    result = find_keyboard_device_or_none()
+
+    # Assert
+    assert result is None
+
+
 # --- E17-E18: EvdevSource.start -----------------------------------------------
 
 
@@ -276,6 +306,53 @@ def test_start_with_explicit_device_path_skips_autodetect(monkeypatch: pytest.Mo
 
     # Assert
     assert source.snapshot() == {"w"}
+
+
+# --- EvdevSource.start: скидання буферизованих (hot-plug) подій --------------
+
+
+def test_start_discards_events_buffered_before_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    device = FakeInputDevice(
+        capabilities={},
+        pending_events=[FakeEvent(EV_KEY, KEY_W, KEY_DOWN)],
+        events=[],
+    )
+    fake_module = FakeEvdevModule(
+        devices={"/dev/input/event5": device}, forbid_list_devices=True
+    )
+    monkeypatch.setitem(sys.modules, "evdev", fake_module)
+    source = EvdevSource(device_path="/dev/input/event5")
+
+    # Act
+    source.start()
+    source.join(timeout=1.0)
+
+    # Assert
+    assert source.snapshot() == set()
+
+
+def test_start_still_reads_events_arriving_after_the_flush(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    device = FakeInputDevice(
+        capabilities={},
+        pending_events=[FakeEvent(EV_KEY, KEY_W, KEY_DOWN)],
+        events=[FakeEvent(EV_KEY, 31, KEY_DOWN)],  # KEY_S, надійшла вже через read_loop
+    )
+    fake_module = FakeEvdevModule(
+        devices={"/dev/input/event5": device}, forbid_list_devices=True
+    )
+    monkeypatch.setitem(sys.modules, "evdev", fake_module)
+    source = EvdevSource(device_path="/dev/input/event5")
+
+    # Act
+    source.start()
+    source.join(timeout=1.0)
+
+    # Assert
+    assert source.snapshot() == {"s"}
 
 
 def test_start_without_device_path_autodetects(monkeypatch: pytest.MonkeyPatch) -> None:

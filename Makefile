@@ -20,14 +20,13 @@ VM_ARDUPILOT_DIR ?= ~/ardupilot_log_analysis/.sitl
 # у watched-теку парсера. Це dev-зручність для локальної перевірки пайплайна
 # з реального SITL-польоту — НЕ той транспорт, що піде на VPS (там WireGuard +
 # rsync/scp за планом, docs/implementation-plan.md §3); тут звичайний SSH у
-# межах локальної мережі UTM.
+# межах локальної мережі UTM. Обидва файли — в одній теці (run-sitl.sh's
+# --logfile ставить .tlog поряд із .BIN, tools/run-sitl.sh), тож один rsync.
 fetch-logs:
 	@test -n "$(VM_HOST)" || { echo "VM_HOST не встановлено (див. .envrc)"; exit 1; }
 	@test -n "$(VM_USER)" || { echo "VM_USER не встановлено (див. .envrc)"; exit 1; }
 	mkdir -p $(INBOX_DIR)
 	rsync -avz "$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/logs/" $(INBOX_DIR)/
-	rsync -avz -m --include='*.tlog' --include='*/' --exclude='*' \
-		"$(VM_USER)@$(VM_HOST):$(VM_ARDUPILOT_DIR)/ArduPlane/" $(INBOX_DIR)/
 
 # Локальний прогін parser+web+caddy тими самими образами й compose-файлом, що й на
 # VPS (deploy/compose/docker-compose.yml) — різниця лише в .env (DOMAIN/TAG/DATA_DIR).
