@@ -28,39 +28,47 @@ command -v wg >/dev/null 2>&1 || {
   exit 1
 }
 
+# Привілейовані команди — через sudo ПОКОМАНДНО, не через запуск усього
+# скрипта під sudo/root: `sudo ./vps/setup-wireguard.sh` інакше обрізає
+# CLIENT_WG_PUBKEY з середовища (sudo за замовчуванням чистить env), а сам
+# скрипт має лишатись запускним звичайним користувачем з sudo-правами (як і
+# local/setup-wireguard.sh на іншому боці).
+
 echo "== ufw: 51820/udp =="  >&2
 if command -v ufw >/dev/null 2>&1; then
-  ufw allow 51820/udp >&2
+  sudo ufw allow 51820/udp >&2
 fi
 
 echo "== Ключ сервера (якщо ще нема) ==" >&2
-mkdir -p /etc/wireguard
-chmod 700 /etc/wireguard
-if [ ! -f /etc/wireguard/server.key ]; then
-  wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub
-  chmod 600 /etc/wireguard/server.key
-else
+sudo mkdir -p /etc/wireguard
+sudo chmod 700 /etc/wireguard
+if sudo test -f /etc/wireguard/server.key; then
   echo "Ключ сервера вже є — лишаю як є." >&2
+else
+  wg genkey | sudo tee /etc/wireguard/server.key >/dev/null
+  sudo chmod 600 /etc/wireguard/server.key
 fi
+sudo sh -c 'wg pubkey < /etc/wireguard/server.key > /etc/wireguard/server.pub'
 
 echo "== wg0.conf з переданим CLIENT_WG_PUBKEY ==" >&2
-cat > /etc/wireguard/wg0.conf <<EOF
+SERVER_PRIVATE_KEY="$(sudo cat /etc/wireguard/server.key)"
+sudo tee /etc/wireguard/wg0.conf >/dev/null <<EOF
 [Interface]
 Address = 10.10.0.1/24
 ListenPort = 51820
-PrivateKey = $(cat /etc/wireguard/server.key)
+PrivateKey = ${SERVER_PRIVATE_KEY}
 
 [Peer]
 PublicKey = ${CLIENT_WG_PUBKEY}
 AllowedIPs = 10.10.0.2/32
 EOF
-chmod 600 /etc/wireguard/wg0.conf
-systemctl enable wg-quick@wg0 >&2
+sudo chmod 600 /etc/wireguard/wg0.conf
+sudo systemctl enable wg-quick@wg0 >&2
 # restart, не start — щоб повторний прогін з ІНШИМ CLIENT_WG_PUBKEY (переліт
 # SITL-хоста) теж підхопився, а не лишив старий peer у вже запущеному інтерфейсі.
-systemctl restart wg-quick@wg0 >&2
-wg show wg0 >&2
+sudo systemctl restart wg-quick@wg0 >&2
+sudo wg show wg0 >&2
 
 # Востаннім рядком stdout — САМЕ ключ, нічого більше: викликач (людина вручну,
 # чи local/setup-wireguard.sh по SSH) забирає його звідси командною підстановкою.
-cat /etc/wireguard/server.pub
+sudo cat /etc/wireguard/server.pub

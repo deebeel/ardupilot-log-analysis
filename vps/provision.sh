@@ -64,11 +64,19 @@ DATA_DIR=/srv/app/data docker compose --project-directory "$COMPOSE_DIR" \
 DATA_DIR=/srv/app/data docker compose --project-directory "$COMPOSE_DIR" \
   -f "$COMPOSE_DIR/docker-compose.yml" up -d
 
-echo "== Health-check =="
-if curl -sf -o /dev/null http://localhost/; then
+echo "== Health-check (з ретраями — Node/Caddy холодний старт триває кілька секунд) =="
+HEALTHY=false
+for _ in $(seq 1 15); do
+  if curl -sf -o /dev/null http://localhost/; then
+    HEALTHY=true
+    break
+  fi
+  sleep 2
+done
+if [ "$HEALTHY" = true ]; then
   echo "OK: http://localhost/ відповідає (Caddy -> web)."
 else
-  echo "ПОМИЛКА: http://localhost/ не відповідає — 'docker compose ps'/'docker compose logs' у $COMPOSE_DIR." >&2
+  echo "ПОМИЛКА: http://localhost/ не відповідає навіть після 30с — 'docker compose ps'/'docker compose logs' у $COMPOSE_DIR." >&2
   exit 1
 fi
 
