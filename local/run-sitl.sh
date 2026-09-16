@@ -45,6 +45,16 @@ LOGDIR="$SITL_DIR/ArduPlane/logs"
 TLOG="$LOGDIR/mav.tlog"
 mkdir -p "$LOGDIR"
 
+# Прийняти SSH host key VPS ДО старту push-logs.sh у фоні — інакше перший
+# rsync/ssh застрягає на інтерактивному "are you sure you want to continue
+# connecting?" просто посеред виводу MAVProxy в тому ж терміналі. Best-effort
+# (не валимо запуск польоту, якщо VPS/WireGuard зараз недоступні — push-logs.sh
+# сам ретраїть при кожному новому файлі).
+VPS_WG_HOST="${VPS_WG_HOST:-10.10.0.1}"
+VPS_USER="${VPS_USER:-root}"
+ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=3 \
+  "$VPS_USER@$VPS_WG_HOST" true 2>/dev/null || true
+
 # Автоматична доставка логів на VPS (RND-254, критерій приймання — не dev-
 # зручність) — окремий фоновий процес (local/push-logs.sh), не частина самого
 # MAVProxy/SITL; живе, поки живий цей скрипт, вимикається разом з ним (trap).
