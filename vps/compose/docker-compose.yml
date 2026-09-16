@@ -1,0 +1,27 @@
+# Спільний для локального прогону і VPS. Образи збираються прямо тут (`build:`,
+# не `image:`) — на VPS це відбувається під час vps/provision.sh (сам VPS
+# amd64, крос-збірка/перенесення tar.gz не потрібні); локально — `make stack-up`.
+services:
+  parser:
+    build: ../../vps/services/parser
+    volumes:
+      - ${DATA_DIR:-../../data}:/data
+    restart: unless-stopped
+
+  web:
+    build: ../../vps/services/web
+    volumes:
+      - ${DATA_DIR:-../../data}/results:/data/results:ro
+    restart: unless-stopped
+    expose:
+      - "4321"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - web
+    restart: unless-stopped

@@ -12,7 +12,7 @@ Docker у цій VM не потрібен взагалі — він потріб
 |---|---|---|
 | **SITL** | рахує фізику апарата, віддає MAVLink | нативно `sim_vehicle.py` (ArduPlane 4.6, без контейнера) |
 | **GCS + візуалізатор** | телеметрія, HUD, режими, arm/disarm, 2D-мапа | MAVProxy (`--map --console`) — одне рішення на обидві ролі |
-| **keyboard-адаптер** | клавіатура → `MANUAL_CONTROL` | `tools/keyboard_adapter` |
+| **keyboard-адаптер** | клавіатура → `MANUAL_CONTROL` | `local/keyboard_adapter` |
 | **авіагоризонт** | живий тангаж/крен під час ручного пілотування | MAVProxy-модуль `horizon` (wx, окреме вікно) |
 
 **Тікет 3D не вимагає.** Дослівно: «Візуалізація польоту — на твій розсуд: FlightGear,
@@ -32,7 +32,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.profile
 ```
 
-### 2. Одноразовий провіжн: `tools/prereqs.sh`
+### 2. Одноразовий провіжн: `local/provision.sh`
 
 Один скрипт, один запит `sudo`-пароля, ідемпотентний (повторний прогін безпечний):
 клонує **офіційний апстрім** ArduPilot у гітignored `.sitl/` (не форк, не submodule —
@@ -44,7 +44,7 @@ MAVProxy й Python-залежності), і додає те, що той не �
 `git-lfs` (доставка логів на VPS) і групу `input` (`evdev`-бекенд клавіатури, крок 4):
 
 ```bash
-./tools/prereqs.sh
+./local/provision.sh
 ```
 
 Якщо групу `input` щойно додано — релогін (вийти й зайти знову), інакше `evdev` не
@@ -53,7 +53,7 @@ MAVProxy й Python-залежності), і додає те, що той не �
 ### 3. `run-sitl`: SITL + MAVProxy з keyboard-адаптером-модулем і `horizon`
 
 ```bash
-./tools/run-sitl.sh
+./local/run-sitl.sh
 ```
 
 Піднімає SITL ArduPlane (`sim_vehicle.py`, компілює лише перший раз) і сам стартує
@@ -66,7 +66,7 @@ heartbeat. `horizon` — штатний MAVProxy-модуль (wx-авіагор
 пілотування без потреби постійно дивитись у `--map`/`--console`. Потребує wxPython —
 `install-prereqs-ubuntu.sh` (крок 2) і так компілює його з джерела незалежно від
 `horizon`, тож додаткового часу на встановлення це не додає, лише перший запуск
-`prereqs.sh` довший (20-40+ хв).
+`provision.sh` довший (20-40+ хв).
 
 Клавіатурний бекенд — `evdev` (kernel `/dev/input`, однаково на Xorg і Wayland —
 дивись розділ нижче), автовизначення пристрою; `Ctrl+C` зупиняє MAVProxy, а разом з
@@ -91,7 +91,7 @@ kb on   # клавіатура НЕ керує сама по собі — FBWA+a
 першому запуску (кешує в `~/.tilecache`) — без мережі буде порожня сітка замість мапи;
 `--console` працює офлайн.
 
-`run-sitl.sh` сам запускає у фоні `tools/push-logs.sh` (і вбиває його разом із собою,
+`run-sitl.sh` сам запускає у фоні `local/push-logs.sh` (і вбиває його разом із собою,
 `Ctrl+C`) — критерій приймання RND-254 ("логи з SITL автоматично потрапляють на VPS")
 вимагає саме автоматичної доставки, не окремої ручної команди після кожного польоту.
 Деталі — розділ нижче.
@@ -102,35 +102,35 @@ Ubuntu 22.04+ типово Wayland, де X11 global-grab (`pynput`) не пра�
 рішення Wayland про ізоляцію застосунків, не недогляд бібліотеки. Саме тому єдиний
 бекенд тут — `evdev`: читає клавіші напряму з ядра (`/dev/input/eventN`), нижче будь-якого
 дисплейного сервера, тож однаково на Xorg і Wayland без вибору сесії логіну. Ціна —
-користувач у групі `input` (додається кроком 2, `./tools/prereqs.sh`; релогін після
+користувач у групі `input` (додається кроком 2, `./local/provision.sh`; релогін після
 першого запуску). Автовизначення бере перший пристрій із `KEY_A`; якщо обрало не той —
 `ls /dev/input/by-id/` або `sudo libinput list-devices`, тоді `KEYBOARD_DEVICE=/dev/input/eventN
-./tools/run-sitl.sh`. Це не «фокус вікна», а сирі коди з пристрою — спрацює навіть без
+./local/run-sitl.sh`. Це не «фокус вікна», а сирі коди з пристрою — спрацює навіть без
 фокуса на потрібному вікні (ближче до поведінки реального джойстика).
 
-### Доставка логів на VPS — автоматична (`tools/push-logs.sh`)
+### Доставка логів на VPS — автоматична (`local/push-logs.sh`)
 
 Пакети (`wireguard-tools`, `rsync`, `openssh-client`, `git-lfs`, `inotify-tools`) — уже в
-кроці 2 (`tools/prereqs.sh`). Сам скрипт `run-sitl.sh` запускає у фоні:
+кроці 2 (`local/provision.sh`). Сам скрипт `run-sitl.sh` запускає у фоні:
 
 - стежить за `.sitl/ArduPlane/logs/` через `inotifywait -e close_write` — той самий
   принцип "не парсити недовантажене", що й `watchdog on_closed` на боці парсера
   (docs/implementation-plan.md §3): щойно ArduPilot закриває `.BIN` (кінець польоту чи
   дизарм), файл негайно `rsync`иться на VPS через WireGuard-тунель (`10.10.0.1`,
-  `deploy/wireguard/wg0-*.conf.example`);
+  `vps/wireguard/wg0-*.conf.example`);
 - `.tlog` штовхається окремо, періодично (кожні 10с за замовчуванням,
   `TLOG_PUSH_INTERVAL`) — він весь час відкритий протягом сесії MAVProxy, "закриття"
   дочекатись не можна;
 - невдалий `rsync` (WireGuard/VPS ще не піднятий) лише пишеться в лог, не валить
   спостереження — наступний закритий `.BIN` чи тик tlog-пушера спробує знову.
 
-Змінні (усі опційні, дефолти відповідають `deploy/provision.sh`): `VPS_WG_HOST`
+Змінні (усі опційні, дефолти відповідають `vps/provision.sh`): `VPS_WG_HOST`
 (`10.10.0.1`), `VPS_USER` (`root`), `VPS_INBOX` (`/srv/app/data/inbox`).
 
 **[не перевірено на реальному VPS]** — перевірено лише механіка (`inotifywait`/`rsync`
 викликаються правильно, коректний cleanup при `Ctrl+C`, без процесів-сиріток) із
 фейковими `inotifywait`/`rsync`; живий прогін через реальний WireGuard-тунель до
-реального VPS ще належить зробити (`deploy/provision.sh` на VPS, потім живий політ).
+реального VPS ще належить зробити (`vps/provision.sh` на VPS, потім живий політ).
 
 ## macOS (README.mac.md, не оцінюється)
 
@@ -138,7 +138,9 @@ Ubuntu 22.04+ типово Wayland, де X11 global-grab (`pynput`) не пра�
 для розробки `parser`/`web`:
 
 - `uv` через brew, Node.
-- Docker (Desktop) — лише для збірки образів `parser`/`web` під VPS (`--platform linux/amd64`).
+- Docker (Desktop) — лише для локального `make stack-up` під час розробки. Образи для VPS
+  збираються прямо на самому VPS під час `vps/provision.sh`, не на Mac — крос-збірка/
+  перенесення tar.gz не потрібні.
 - WireGuard — не потрібен на Mac у фінальній схемі (тунель між VM і VPS).
 
 ## Порядок перевірки на реальному стенді

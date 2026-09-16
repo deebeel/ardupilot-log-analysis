@@ -1,7 +1,0 @@
-# DOMAIN=localhost (дефолт .env.example) -> Caddy сам видає self-signed сертифікат,
-# без ACME/інтернету. Реальний домен -> авто-HTTPS через Let's Encrypt (потребує
-# outbound на ACME з VPS) АБО tls-директива на готовий сертифікат від замовника —
-# див. CLAUDE.md/розділ "Розгортання" щодо формату сертифіката, уточнити в замовника.
-{$DOMAIN} {
-	reverse_proxy web:4321
-}

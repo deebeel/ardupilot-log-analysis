@@ -11,19 +11,19 @@
 # MAVProxy-модуль (wx-авіагоризонт), живий фідбек під час ручного пілотування
 # без потреби дивитись на --map/--console.
 # Клавіатурний бекенд — лише evdev (kernel /dev/input, однаково на Xorg і
-# Wayland, потребує групи `input` — ./tools/prereqs.sh); KEYBOARD_DEVICE=
+# Wayland, потребує групи `input` — ./local/provision.sh); KEYBOARD_DEVICE=
 # /dev/input/eventN, якщо автовизначення обрало не той пристрій.
 # keyboard_adapter НЕ керує сам по собі — треба `kb on` у консолі MAV> (окрім
 # FBWA + armed, docs/host-prerequisites.md крок 3).
 # Без sudo, повторюваний — викликати перед кожним польотом, після одноразового
-# ./tools/prereqs.sh.
+# ./local/provision.sh.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SITL_DIR="$REPO_ROOT/.sitl"
 
 if [ ! -d "$SITL_DIR/ArduPlane" ]; then
-  echo "$SITL_DIR не знайдено — спочатку ./tools/prereqs.sh" >&2
+  echo "$SITL_DIR не знайдено — спочатку ./local/provision.sh" >&2
   exit 1
 fi
 
@@ -39,16 +39,16 @@ if [ -f "$VENV_ACTIVATE" ]; then
 fi
 export PATH="$SITL_DIR/Tools/autotest:$PATH"
 
-export PYTHONPATH="$REPO_ROOT/tools/keyboard_adapter/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$REPO_ROOT/local/keyboard_adapter/src${PYTHONPATH:+:$PYTHONPATH}"
 
 LOGDIR="$SITL_DIR/ArduPlane/logs"
 TLOG="$LOGDIR/mav.tlog"
 mkdir -p "$LOGDIR"
 
 # Автоматична доставка логів на VPS (RND-254, критерій приймання — не dev-
-# зручність) — окремий фоновий процес (tools/push-logs.sh), не частина самого
+# зручність) — окремий фоновий процес (local/push-logs.sh), не частина самого
 # MAVProxy/SITL; живе, поки живий цей скрипт, вимикається разом з ним (trap).
-"$REPO_ROOT/tools/push-logs.sh" &
+"$REPO_ROOT/local/push-logs.sh" &
 PUSH_LOGS_PID=$!
 trap 'kill "$PUSH_LOGS_PID" 2>/dev/null || true' EXIT
 

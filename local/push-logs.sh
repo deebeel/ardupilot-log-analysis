@@ -22,7 +22,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGDIR="$REPO_ROOT/.sitl/ArduPlane/logs"
 
-# WireGuard-адреси фіксовані в deploy/wireguard/wg0-*.conf.example (сервер
+# WireGuard-адреси фіксовані в vps/wireguard/wg0-*.conf.example (сервер
 # 10.10.0.1, клієнт/SITL-хост 10.10.0.2) — VPS_WG_HOST перевизначити, якщо
 # тунель піднятий інакше. VPS_USER=root — provision.sh не створює окремого
 # deploy-користувача, /srv/app/data ставиться chown 1000:1000 (parser у
@@ -35,7 +35,7 @@ TLOG_PUSH_INTERVAL="${TLOG_PUSH_INTERVAL:-10}"
 mkdir -p "$LOGDIR"
 
 if ! command -v inotifywait >/dev/null 2>&1; then
-  echo "push-logs.sh: inotifywait не знайдено — ./tools/prereqs.sh (inotify-tools)" >&2
+  echo "push-logs.sh: inotifywait не знайдено — ./local/provision.sh (inotify-tools)" >&2
   exit 1
 fi
 

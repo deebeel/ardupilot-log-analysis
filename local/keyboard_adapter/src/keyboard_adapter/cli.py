@@ -50,7 +50,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--device",
         default=None,
         help="шлях до /dev/input/eventN (за замовчуванням — автовизначення); "
-        "потрібна група `input` (./tools/prereqs.sh)",
+        "потрібна група `input` (./local/provision.sh)",
     )
     parser.add_argument(
         "--debug",

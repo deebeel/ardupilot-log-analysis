@@ -1,7 +1,7 @@
 """Тестована частина MAVProxy-модуля `keyboard_adapter`.
 
 Ні тут, ні в `loop.py`/`axes.py` не імпортується сам пакет `MAVProxy` — той
-ставиться лише разом з ArduPilot на Ubuntu-хості (`tools/prereqs.sh`), не в
+ставиться лише разом з ArduPilot на Ubuntu-хості (`local/provision.sh`), не в
 dev-оточенні цього репозиторію. `__init__.py`'s `init()` (лінива імпортація
 `MAVProxy.modules.lib.mp_module.MPModule`, локальний підклас) — єдине місце,
 що реально залежить від MAVProxy; уся логіка життєвого циклу фонового треду

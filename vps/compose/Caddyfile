@@ -1,0 +1,4 @@
+# Без сертифікатів: звичайний HTTP reverse-proxy, ніякого ACME/self-signed.
+:80 {
+	reverse_proxy web:4321
+}

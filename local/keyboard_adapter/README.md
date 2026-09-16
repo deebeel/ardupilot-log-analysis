@@ -3,7 +3,7 @@
 Шле `MANUAL_CONTROL` у SITL ArduPlane з клавіатури, замінюючи фізичний джойстик для
 ручного пілотування. **Вантажиться MAVProxy-модулем** (`init()` у
 `keyboard_adapter/__init__.py`, `--load-module keyboard_adapter` — див.
-`tools/run-sitl.sh`), не окремим процесом: ідіоматично для MAVProxy (так само
+`local/run-sitl.sh`), не окремим процесом: ідіоматично для MAVProxy (так само
 розширюються map/console/antenna-tracker), без власного UDP-конекту й очікування
 heartbeat — `self.master` вже підключений. `cli.py` лишається окремо, лише як
 dev-утиліта для debug (`--dry`) поза MAVProxy — не шлях керування польотом
@@ -81,16 +81,16 @@ hot-plug watcher — підключення клавіатури ПОСЕРЕД�
 ## Запуск (продакшн-шлях — MAVProxy-модуль)
 
 ```bash
-./tools/run-sitl.sh
+./local/run-sitl.sh
 ```
 
 Піднімає SITL + MAVProxy (`sim_vehicle.py --mavproxy-args "--load-module
 keyboard_adapter"`). **Живцем виявлено**: MAVProxy для стороннього модуля імпортує
 голе ім'я `keyboard_adapter` (не `mavproxy_keyboard_adapter`) — тобто саме цей пакет,
 з `init()` у його `__init__.py`; `PYTHONPATH` (`run-sitl.sh` виставляє на
-`tools/keyboard_adapter/src`) потрібен, щоб пакет узагалі був видимий. Ні `uv sync`,
+`local/keyboard_adapter/src`) потрібен, щоб пакет узагалі був видимий. Ні `uv sync`,
 ні окремий процес не потрібні — модуль виконується в тому Python-оточенні, де вже
-живе сама MAVProxy (`~/venv-ardupilot`, `tools/prereqs.sh` ставить туди `evdev`).
+живе сама MAVProxy (`~/venv-ardupilot`, `local/provision.sh` ставить туди `evdev`).
 
 ### Клавіатурний бекенд: лише `evdev`
 
@@ -100,9 +100,9 @@ keyboard_adapter"`). **Живцем виявлено**: MAVProxy для стор
 продакшн-шлях один (MAVProxy-модуль, не вибір користувача під час запуску) — тримати
 другий бекенд заради Xorg-варіанту сенсу нема, лише зайва гілка коду й тестів.
 
-Потребує групи `input` (`./tools/prereqs.sh`, ідемпотентно; релогін після першого
+Потребує групи `input` (`./local/provision.sh`, ідемпотентно; релогін після першого
 додавання). Автовизначення бере перший пристрій із `KEY_A`; якщо обрало не той —
-`KEYBOARD_DEVICE=/dev/input/event3 ./tools/run-sitl.sh` (`ls /dev/input/by-id/` або
+`KEYBOARD_DEVICE=/dev/input/event3 ./local/run-sitl.sh` (`ls /dev/input/by-id/` або
 `sudo libinput list-devices`, щоб знайти правильний).
 
 `evdev` не встановлюється на macOS (лінукс-специфічне C-розширення, env-маркер у

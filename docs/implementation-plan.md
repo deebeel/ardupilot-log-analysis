@@ -12,15 +12,16 @@ ardupilot_log_analysis/
 ├── README.mac.md                # опційний, для власного dev-циклу
 ├── assets/                      # логи, тікет, demo-flight-task.md
 ├── docs/                        # scoring-algorithm.md, цей файл
-├── services/
-│   ├── parser/                  # Python-сервіс (§1)
-│   └── web/                     # Astro-сервіс (§2)
-├── tools/
+├── local/                       # Мережа A (SITL-хост)
+│   ├── provision.sh, run-sitl.sh, push-logs.sh
 │   └── keyboard_adapter/        # Python, клавіатура → MANUAL_CONTROL (§4)
-├── deploy/
+├── vps/                      # Мережа B (VPS) — включно з сервісами, вони лише там і живуть
+│   ├── services/
+│   │   ├── parser/              # Python-сервіс (§1)
+│   │   └── web/                 # Astro-сервіс (§2)
 │   ├── compose/                 # docker-compose.yml + .env.example + Caddyfile (§5)
 │   ├── wireguard/               # конфіги peer-ів (§3)
-│   └── deploy.sh, provision.sh  # shell-скрипти деплою (§7)
+│   └── provision.sh             # shell-скрипт деплою (§7) — build+up злиті в один прогін
 └── data/                        # gitignored: inbox/, results/ для локального запуску
 ```
 
@@ -31,7 +32,7 @@ ardupilot_log_analysis/
 ### 1.1 Структура
 
 ```
-services/parser/
+vps/services/parser/
 ├── pyproject.toml               # uv, deps: pymavlink, numpy, pyyaml, watchdog
 ├── uv.lock
 ├── Dockerfile
@@ -124,7 +125,7 @@ CMD ["python", "-m", "parser.watcher"]
 ### 2.1 Структура
 
 ```
-services/web/
+vps/services/web/
 ├── package.json / package-lock.json
 ├── astro.config.mjs             # output: 'server', adapter: @astrojs/node (mode 'standalone')
 ├── tailwind.config.mjs
@@ -195,7 +196,7 @@ docker-мережами без спільної мережі одна з одн�
 нижче), UDP-порт сервера опубліковано на хості, щоб імітувати "інтернет" між ними:
 handshake встановився, `ping` крізь `10.10.0.0/24` пройшов, `rsync` реального `.BIN`
 (11 МБ) через тунель доставив файл побайтово ідентичним, і `parser.worker` на ньому
-відпрацював без помилок. Приклади конфігів — `deploy/wireguard/wg0-{server,client}.conf.example`.
+відпрацював без помилок. Приклади конфігів — `vps/wireguard/wg0-{server,client}.conf.example`.
 Реальний VPS замінить сервер-контейнер 1:1 — конфіг клієнта (SITL-хост) той самий, лише
 `Endpoint` міняється з тестового на публічний IP VPS.
 
@@ -212,7 +213,7 @@ handshake встановився, `ping` крізь `10.10.0.0/24` пройшо�
 
 ---
 
-## 4. `tools/keyboard_adapter`
+## 4. `local/keyboard_adapter`
 
 - Окремий `pyproject.toml` (`pymavlink`, `evdev`) — не тягнути клавіатурні залежності у серверний образ.
 - Запускається **на хості**, не в контейнері (доступ до клавіатури), конект до SITL
@@ -227,11 +228,11 @@ handshake встановився, `ping` крізь `10.10.0.0/24` пройшо�
 
 ## 5. docker-compose
 
-**Реалізовано** — `deploy/compose/docker-compose.yml`/`Caddyfile`/`.env.example`, перевірено
+**Реалізовано** — `vps/compose/docker-compose.yml`/`Caddyfile`/`.env.example`, перевірено
 живцем (`make stack-up`): `curl https://localhost/` → 200 через self-signed Caddy, парсер
 підхопив реальні `.BIN` з `data/inbox`, `make stack-down` прибирає все чисто.
 
-Один файл `deploy/compose/docker-compose.yml`, різниця локально/VPS — лише `.env`.
+Один файл `vps/compose/docker-compose.yml`, різниця локально/VPS — лише `.env`.
 
 ```yaml
 services:
@@ -264,18 +265,18 @@ SITL не контейнеризується (тікет: "у ВМ або на b
 
 ## 6. Makefile (локально)
 
-**Реалізовано** (крім `deploy` — разом із `deploy/deploy.sh`, §7). SITL/keyboard-адаптер —
-не Makefile-таргети, а `tools/prereqs.sh`/`tools/run-sitl.sh` (запускаються нативно на
+**Реалізовано** (крім `deploy` — разом із `vps/deploy.sh`, §7). SITL/keyboard-адаптер —
+не Makefile-таргети, а `local/provision.sh`/`local/run-sitl.sh` (запускаються нативно на
 Ubuntu-хості за `docs/host-prerequisites.md`, не з Mac).
 
 ```
 fetch-logs                # dev-зручність: .BIN/.tlog з UTM VM у data/ через ssh/rsync
-stack-up / stack-down    # docker compose -f deploy/compose/docker-compose.yml (parser+web+caddy)
+stack-up / stack-down    # docker compose -f vps/compose/docker-compose.yml (parser+web+caddy)
 build                    # buildx, обидва образи (--platform linux/amd64 для VPS-цілі)
 save                     # build + docker save | gzip → dist/images.tar.gz
 test                     # mypy+pytest (parser) + lint/vitest/playwright (web)
 parse FILE=...           # разовий прогін воркера на файлі, без watcher
-deploy                   # ще не реалізовано — deploy/deploy.sh
+deploy                   # ще не реалізовано — vps/deploy.sh
 ```
 
 ---
@@ -288,7 +289,7 @@ deploy                   # ще не реалізовано — deploy/deploy.sh
 тут не окупається, а рев'юєру довелось би читати YAML/Jinja замість лінійного bash.
 
 ```
-deploy/
+vps/
 ├── deploy.sh                 # головний скрипт (нижче)
 ├── provision.sh              # одноразово: apt, ufw, WireGuard-сервер на хості VPS
 ├── compose/
@@ -306,13 +307,13 @@ deploy/
 
 `deploy.sh` (запускається з робочої машини, ідемпотентний — повторний запуск безпечний):
 1. `mkdir -p /srv/app/{data/inbox,data/results}` на VPS через `ssh` (права під UID 1000).
-2. `scp`/`rsync` `dist/images.tar.gz` (з `sha256sum`-порівнянням — не заливати повторно, якщо збіглося) + `deploy/compose/*` на VPS.
+2. `scp`/`rsync` `dist/images.tar.gz` (з `sha256sum`-порівнянням — не заливати повторно, якщо збіглося) + `vps/compose/*` на VPS.
 3. `ssh vps 'docker load -i /srv/app/images.tar.gz'` — офлайн, без Docker Hub.
 4. `ssh vps 'docker compose -f /srv/app/docker-compose.yml up -d'` (**без `--build`**, образи вже в daemon).
 5. `curl -sf https://$DOMAIN/` — health-check, ненульовий вихід зупиняє скрипт (`set -euo pipefail`).
 
-Логи `.bin`/`.tlog` штовхає `rsync` із SITL-хоста напряму, автоматично: `tools/push-logs.sh`
-(запускається у фоні самим `tools/run-sitl.sh`) стежить за `.sitl/ArduPlane/logs/` через
+Логи `.bin`/`.tlog` штовхає `rsync` із SITL-хоста напряму, автоматично: `local/push-logs.sh`
+(запускається у фоні самим `local/run-sitl.sh`) стежить за `.sitl/ArduPlane/logs/` через
 `inotifywait -e close_write` і штовхає кожен закритий `.BIN` негайно (`.tlog` — періодично,
 бо він весь час відкритий) — окремого РУЧНОГО кроку/скрипту після кожного польоту не треба,
 критерій приймання тікета вимагає саме автоматичності, не лише наявності транспорту (§3 вище).

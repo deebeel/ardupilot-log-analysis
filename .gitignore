@@ -10,7 +10,7 @@ data/
 deploy/compose/.env
 dist/
 
-# Офіційний апстрім ArduPilot, клонується tools/prereqs.sh на пінований тег —
+# Офіційний апстрім ArduPilot, клонується local/provision.sh на пінований тег —
 # залежність для збірки/запуску, не частина цього репозиторію (як і assets/ нижче).
 .sitl/
 
