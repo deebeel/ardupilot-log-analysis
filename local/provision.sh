@@ -21,21 +21,33 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SITL_DIR="$REPO_ROOT/.sitl"
-# Серія тегів Plane-4.6, не гілка — звірити актуальний останній 4.6.x:
-#   git -C .sitl tag -l "Plane-4.6.*" --sort=-v:refname | head -1
+# Серія тегів Plane-4.6, не гілка — звірити актуальний останній 4.6.x (без
+# повного клону, лише список тегів з віддаленого репозиторія):
+#   git ls-remote --tags https://github.com/ArduPilot/ardupilot.git 'refs/tags/Plane-4.6.*' | sort -V | tail -1
 ARDUPILOT_TAG="${ARDUPILOT_TAG:-Plane-4.6.3}"
 
 sudo -v
 
-echo "== ArduPilot (.sitl/): клон офіційного апстріму + тег ${ARDUPILOT_TAG} =="
+# Shallow-клон САМЕ потрібного тега (--depth 1 --branch), не всієї історії
+# репозиторія (в ArduPilot вона величезна — десятки тисяч комітів, сотні
+# тегів) і не всіх submodule-ів на повну глибину (--shallow-submodules).
+# Економить і час, і диск; для збірки SITL повна історія не потрібна взагалі.
+echo "== ArduPilot (.sitl/): shallow-клон офіційного апстріму на тег ${ARDUPILOT_TAG} =="
 if [ ! -d "$SITL_DIR/.git" ]; then
-  git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git "$SITL_DIR"
+  git clone --recurse-submodules --shallow-submodules --depth 1 \
+    --branch "$ARDUPILOT_TAG" \
+    https://github.com/ArduPilot/ardupilot.git "$SITL_DIR"
 else
-  echo ".sitl/ вже клоновано — пропускаю clone, лише fetch/checkout."
+  CURRENT_TAG="$(git -C "$SITL_DIR" describe --tags --exact-match 2>/dev/null || true)"
+  if [ "$CURRENT_TAG" = "$ARDUPILOT_TAG" ]; then
+    echo ".sitl/ вже на тезі ${ARDUPILOT_TAG} — пропускаю."
+  else
+    echo ".sitl/ на іншому тезі (${CURRENT_TAG:-невідомо}) — перетягую ${ARDUPILOT_TAG} (shallow)."
+    git -C "$SITL_DIR" fetch --depth 1 origin tag "$ARDUPILOT_TAG"
+    git -C "$SITL_DIR" checkout "$ARDUPILOT_TAG"
+    git -C "$SITL_DIR" submodule update --init --recursive --depth 1
+  fi
 fi
-git -C "$SITL_DIR" fetch --tags
-git -C "$SITL_DIR" checkout "$ARDUPILOT_TAG"
-git -C "$SITL_DIR" submodule update --init --recursive
 
 echo "== ArduPilot install-prereqs (важкий, sudo викликає сам усередині) =="
 "$SITL_DIR/Tools/environment_install/install-prereqs-ubuntu.sh" -y
@@ -78,6 +90,7 @@ cat <<EOF
 
 Готово. .sitl/ на тезі ${ARDUPILOT_TAG}, системні залежності встановлені.
 Якщо групу input щойно додано — релогін, тоді:
-  VPS_HOST=root@<vps> ./local/setup-wireguard.sh   # піднімає тунель на обох боках
+  VPS_HOST=root@<vps> ./local/setup-wireguard.sh   # авто, якщо є SSH до VPS
+  ./local/setup-wireguard.sh                        # ручний режим — дивись сам файл
   ./local/run-sitl.sh
 EOF

@@ -17,18 +17,18 @@
 ```
 local/                        # Мережа A (SITL-хост)
 ├── provision.sh               # одноразовий провіжн SITL-хоста (sudo)
-├── setup-wireguard.sh          # піднімає тунель на ОБОХ боках (SSH на VPS звідси)
+├── setup-wireguard.sh          # клієнтський бік тунелю: авто (SSH на VPS) або ручний
 ├── run-sitl.sh                  # повторюваний запуск SITL+MAVProxy (без sudo)
 ├── push-logs.sh                 # автоматична доставка логів на VPS (фон, запускається run-sitl.sh)
 └── keyboard_adapter/              # MAVProxy-модуль: клавіатура -> MANUAL_CONTROL
 vps/                        # Мережа B (VPS)
-├── provision.sh                # одноразовий провіжн VPS: Docker, ufw, WireGuard-сервер,
-│                               # збірка образів і `docker compose up -d` — все в одному прогоні
+├── provision.sh                # одноразовий провіжн VPS: Docker, ufw, збірка образів
+│                               # і `docker compose up -d` — все в одному прогоні
+├── setup-wireguard.sh           # серверний бік тунелю (ручний або викликається з local/ по SSH)
 ├── services/
-│   ├── parser/                  # приймач + аналізатор логів (Python, pymavlink)
-│   └── web/                      # звіт (Astro/TS)
-├── compose/                     # docker-compose.yml, Caddyfile, .env.example
-└── wireguard/                   # шаблони wg0.conf (клієнт/сервер)
+│   ├── parser/                   # приймач + аналізатор логів (Python, pymavlink)
+│   └── web/                       # звіт (Astro/TS)
+└── compose/                      # docker-compose.yml, Caddyfile, .env.example
 docs/
 ├── implementation-plan.md       # детальний план реалізації (сервіси, компроміси)
 ├── host-prerequisites.md        # чернетка, з якої зібрано розділ SITL нижче
@@ -140,6 +140,21 @@ SSH ходить не туди, куди має слухати WireGuard — п�
 Ідемпотентний — повторний прогін (напр. після переліту SITL-хоста чи зміни VPS)
 перезапише конфіги обох боків і перепідніме `wg0`.
 
+**Якщо SSH з SITL-хоста на VPS немає** (інша мережа, фаєрвол, VPS адмінить хтось
+інший) — тунель усе одно потрібен (це прямий критерій приймання тікета), просто
+обмін публічними ключами стає ручним, без SSH:
+
+```bash
+# 1. Тут: друкує публічний ключ клієнта, wg0 ще НЕ піднятий
+./local/setup-wireguard.sh
+
+# 2. На VPS (яким завгодно доступом): друкує публічний ключ сервера
+CLIENT_WG_PUBKEY=<ключ_з_1> ./vps/setup-wireguard.sh
+
+# 3. Тут: тепер піднімає wg0
+SERVER_WG_PUBKEY=<ключ_з_2> VPS_ENDPOINT=<ip_або_домен_vps>:51820 ./local/setup-wireguard.sh
+```
+
 ---
 
 ## Крок 4. Запуск SITL + MAVProxy + керування
@@ -219,14 +234,20 @@ cd local/keyboard_adapter && uv run mypy && uv run pytest -q
 - **Розгортання — shell (`local/provision.sh` + `vps/provision.sh`), не Ansible.**
   Один VPS, одноразовий прогін — цінність Ansible (ідемпотентність для флоту хостів) тут
   не окупається. Обидва скрипти запускаються з клона репозиторія на своєму хості.
-- **WireGuard — окремий скрипт (`local/setup-wireguard.sh`), не частина жодного
-  provision.sh, і піднімає ОБИДВА боки одним запуском з SITL-хоста.** SITL-хост уже
-  має SSH-доступ до VPS (той самий, яким туди клонували репозиторій і запускали
-  `vps/provision.sh`) — раз спільний канал є, ручний обмін публічними ключами між
-  двома терміналами зайвий: скрипт сам генерує ключі на обох боках і сам пише
-  конфіги на обох боках через SSH.
+- **WireGuard — окремі симетричні скрипти (`local/setup-wireguard.sh` +
+  `vps/setup-wireguard.sh`), не частина жодного `provision.sh`.** Тунель — прямий
+  критерій приймання тікета, тож потрібен незалежно від того, чи є SSH між
+  хостами: якщо є (типовий випадок — SITL-хост тим самим SSH клонував репо на VPS
+  і запускав `vps/provision.sh`) — `local/setup-wireguard.sh` з `VPS_HOST=...`
+  піднімає ОБИДВА боки одним запуском, викликаючи `vps/setup-wireguard.sh`
+  віддалено; якщо SSH нема (інша мережа, VPS адмінить хтось інший) — той самий
+  `vps/setup-wireguard.sh` запускається вручну на VPS, а публічні ключі
+  передаються між скриптами людиною (`SERVER_WG_PUBKEY`/`CLIENT_WG_PUBKEY`).
 - **Образи для VPS збираються прямо на самому VPS**, під час `vps/provision.sh` —
   VPS уже нативний `amd64`, окремого кроку "зібрати на робочій машині й перенести" нема.
+- **`local/provision.sh` shallow-клонує ArduPilot** (`--depth 1 --branch <тег>`), не
+  всю історію апстріму — SITL-збірці історія не потрібна, а репозиторій ArduPilot
+  великий (десятки тисяч комітів, багато тегів).
 - **Без сертифікатів (поточний стан)** — Caddy лише проксує звичайний HTTP; SSL/домен від
   замовника підставляються окремим кроком пізніше, коли будуть надані.
 - **Доставка логів — автоматична** (`local/push-logs.sh`, `inotifywait` на `close_write`),

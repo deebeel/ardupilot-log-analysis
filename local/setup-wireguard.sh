@@ -1,30 +1,32 @@
 #!/usr/bin/env bash
-# Піднімає WireGuard-тунель між SITL-хостом (Мережа A) і VPS (Мережа B) —
-# ОБИДВА боки, одним запуском, з SITL-хоста.
+# SITL-хост: піднімає клієнтську частину WireGuard-тунелю до VPS. Симетричний
+# файл до vps/setup-wireguard.sh (сервер) — та сама назва з обох боків.
 #
-# Раніше кожен бік піднімав лише себе (local/provision.sh + vps/provision.sh),
-# а публічні ключі передавались одна одному вручну — цей крок фізично
-# доводилось робити, бо два окремі скрипти на двох окремих машинах не мали
-# спільного каналу. Тут спільний канал ЄСТЬ: VPS_HOST — той самий SSH, яким
-# адмінить сам VPS (клонування репозиторія, provision.sh). Раз доступ уже є —
-# немає сенсу ганяти публічні ключі копіпастою між двома терміналами: цей
-# скрипт сам генерує ключі на обох боках (свій — тут, серверний — по SSH) і
-# сам пише конфіги на обох боках. Ручний обмін ключами більше НЕ потрібен.
+# Два режими:
 #
-# Використання (з SITL-хоста, після local/provision.sh і vps/provision.sh):
-#   VPS_HOST=root@<vps> ./local/setup-wireguard.sh
+# 1) Автоматичний (є SSH з SITL-хоста на VPS):
+#      VPS_HOST=root@<vps> ./local/setup-wireguard.sh
+#    Сам генерує ключ тут, ходить по SSH і викликає той самий
+#    vps/setup-wireguard.sh з клона репозиторія на VPS (без дублювання логіки
+#    в цьому файлі), забирає звідти публічний ключ сервера і сам піднімає wg0
+#    тут. Жодного ручного кроку.
 #
-# VPS_ENDPOINT — публічна адреса VPS для клієнтського Endpoint; за замовчуванням
-# беремо хост із VPS_HOST (без користувача) і порт 51820. Перевизначити, якщо
-# SSH ходить через інший хост/порт, ніж сам WireGuard-ендпоінт (напр. VPS_HOST
-# через bastion, а VPS_ENDPOINT — реальний публічний IP).
+# 2) Ручний (SSH до VPS нема — інша мережа, фаєрвол, VPS адмінить хтось
+#    інший): той самий тунель усе одно потрібен (критерій приймання тікета),
+#    просто обмін публічними ключами відбувається людиною, не скриптом:
+#      а) тут:    ./local/setup-wireguard.sh
+#                  -> друкує публічний ключ клієнта, wg0 ще НЕ піднятий
+#      б) на VPS (яким завгодно доступом): CLIENT_WG_PUBKEY=<з а> ./vps/setup-wireguard.sh
+#                  -> друкує публічний ключ сервера
+#      в) тут:    SERVER_WG_PUBKEY=<з б> VPS_ENDPOINT=<ip_або_домен>:51820 ./local/setup-wireguard.sh
+#                  -> тепер піднімає wg0
 #
-# Ідемпотентний: повторний прогін не створює нових ключів, якщо вже є, і просто
-# перезаписує/перезапускає wg0 на обох боках (напр. якщо VPS_ENDPOINT змінився).
+# VPS_REPO_DIR (лише для автоматичного режиму) — назва теки клона репозиторія
+# в $HOME на VPS; за замовчуванням береться назва локальної теки (той самий
+# `git clone <URL>` дає ту саму назву на обох хостах, якщо не перейменовували).
+#
+# Ідемпотентний в обох режимах.
 set -euo pipefail
-
-: "${VPS_HOST:?потрібен VPS_HOST=root@<vps> ./local/setup-wireguard.sh}"
-VPS_ENDPOINT="${VPS_ENDPOINT:-${VPS_HOST#*@}:51820}"
 
 WG_PRIVATE_KEY_FILE="$HOME/.wg-privatekey"
 WG_PUBLIC_KEY_FILE="$HOME/.wg-publickey"
@@ -39,41 +41,29 @@ fi
 CLIENT_PUBKEY="$(cat "$WG_PUBLIC_KEY_FILE")"
 echo "Публічний ключ клієнта: $CLIENT_PUBKEY"
 
-echo "== VPS ($VPS_HOST): ключ сервера — якщо ще нема, генерую по SSH =="
-# Один SSH-виклик: генерує ключ лише за потреби (ідемпотентно) і в будь-якому
-# разі друкує публічний ключ сервера в stdout — тут його й забираємо.
-SERVER_PUBKEY="$(ssh "$VPS_HOST" '
-  set -euo pipefail
-  mkdir -p /etc/wireguard
-  chmod 700 /etc/wireguard
-  if [ ! -f /etc/wireguard/server.key ]; then
-    wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub
-    chmod 600 /etc/wireguard/server.key
-  fi
-  cat /etc/wireguard/server.pub
-')"
-echo "Публічний ключ сервера: $SERVER_PUBKEY"
+if [ -n "${VPS_HOST:-}" ]; then
+  # Автоматичний режим: SSH є, ганяти ключі копіпастою між терміналами нема сенсу.
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  VPS_ENDPOINT="${VPS_ENDPOINT:-${VPS_HOST#*@}:51820}"
+  VPS_REPO_DIR="${VPS_REPO_DIR:-$(basename "$REPO_ROOT")}"
+  echo "== VPS_HOST передано — піднімаю сервер по SSH (~/${VPS_REPO_DIR}/vps/setup-wireguard.sh) =="
+  SERVER_PUBKEY="$(ssh "$VPS_HOST" "CLIENT_WG_PUBKEY='${CLIENT_PUBKEY}' ~/${VPS_REPO_DIR}/vps/setup-wireguard.sh")"
+elif [ -n "${SERVER_WG_PUBKEY:-}" ]; then
+  # Ручний режим: ключ сервера вже отримано десь інакше (крок "б" вище).
+  SERVER_PUBKEY="$SERVER_WG_PUBKEY"
+  VPS_ENDPOINT="${VPS_ENDPOINT:?потрібен VPS_ENDPOINT=<ip_або_домен_vps>:51820 разом із SERVER_WG_PUBKEY}"
+else
+  cat <<EOF
 
-echo "== VPS ($VPS_HOST): wg0.conf з публічним ключем клієнта =="
-ssh "$VPS_HOST" "CLIENT_PUBKEY='${CLIENT_PUBKEY}' bash -s" <<'REMOTE'
-set -euo pipefail
-cat > /etc/wireguard/wg0.conf <<EOF
-[Interface]
-Address = 10.10.0.1/24
-ListenPort = 51820
-PrivateKey = $(cat /etc/wireguard/server.key)
-
-[Peer]
-PublicKey = ${CLIENT_PUBKEY}
-AllowedIPs = 10.10.0.2/32
+Ні VPS_HOST (автоматичний режим), ні SERVER_WG_PUBKEY (ручний режим) не
+передано — wg0 НЕ піднімаю. Публічний ключ клієнта вище передати на VPS
+(CLIENT_WG_PUBKEY=... ./vps/setup-wireguard.sh) і прогнати цей скрипт ще раз
+із SERVER_WG_PUBKEY+VPS_ENDPOINT — або одразу VPS_HOST=root@<vps>, якщо є SSH.
 EOF
-chmod 600 /etc/wireguard/wg0.conf
-systemctl enable wg-quick@wg0
-# restart, не start — щоб повторний прогін з ІНШИМ клієнтським ключем (переліт
-# SITL-хоста) теж підхопився, а не лишив старий peer у вже запущеному інтерфейсі.
-systemctl restart wg-quick@wg0
-wg show wg0
-REMOTE
+  exit 0
+fi
+
+echo "Публічний ключ сервера: $SERVER_PUBKEY"
 
 echo "== Локально: wg0.conf з публічним ключем сервера, Endpoint=${VPS_ENDPOINT} =="
 sudo mkdir -p /etc/wireguard

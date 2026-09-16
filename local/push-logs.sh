@@ -22,7 +22,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGDIR="$REPO_ROOT/.sitl/ArduPlane/logs"
 
-# WireGuard-адреси фіксовані в vps/wireguard/wg0-*.conf.example (сервер
+# WireGuard-адреси фіксовані у vps/setup-wireguard.sh + local/setup-wireguard.sh (сервер
 # 10.10.0.1, клієнт/SITL-хост 10.10.0.2) — VPS_WG_HOST перевизначити, якщо
 # тунель піднятий інакше. VPS_USER=root — provision.sh не створює окремого
 # deploy-користувача, /srv/app/data ставиться chown 1000:1000 (parser у

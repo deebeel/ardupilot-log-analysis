@@ -35,13 +35,15 @@ source ~/.profile
 ### 2. Одноразовий провіжн: `local/provision.sh`
 
 Один скрипт, один запит `sudo`-пароля, ідемпотентний (повторний прогін безпечний):
-клонує **офіційний апстрім** ArduPilot у гітignored `.sitl/` (не форк, не submodule —
-просто ще одна локальна тека поза git, як `assets/`/`data/`), виставляє пінований тег
-(`Plane-4.6.3` — серія тегів релізів, не гілка; звірити реальний останній `4.6.x`:
-`git -C .sitl tag -l "Plane-4.6.*" --sort=-v:refname | head -1`, перевизначити через
-`ARDUPILOT_TAG=...`), запускає ArduPilot-івський `install-prereqs-ubuntu.sh` (сам ставить
-MAVProxy й Python-залежності), і додає те, що той не покриває — `wireguard-tools`/`rsync`/
-`git-lfs` (доставка логів на VPS) і групу `input` (`evdev`-бекенд клавіатури, крок 4):
+shallow-клонує (`--depth 1 --branch <тег>`, не всю історію) **офіційний апстрім**
+ArduPilot у гітignored `.sitl/` (не форк, не submodule — просто ще одна локальна тека
+поза git, як `assets/`/`data/`), одразу на пінований тег (`Plane-4.6.3` — серія тегів
+релізів, не гілка; звірити реальний останній `4.6.x` без повного клону:
+`git ls-remote --tags https://github.com/ArduPilot/ardupilot.git 'refs/tags/Plane-4.6.*' | sort -V | tail -1`,
+перевизначити через `ARDUPILOT_TAG=...`), запускає ArduPilot-івський
+`install-prereqs-ubuntu.sh` (сам ставить MAVProxy й Python-залежності), і додає те, що
+той не покриває — `wireguard-tools`/`rsync`/`git-lfs` (доставка логів на VPS) і групу
+`input` (`evdev`-бекенд клавіатури, крок 4):
 
 ```bash
 ./local/provision.sh
@@ -117,7 +119,7 @@ Ubuntu 22.04+ типово Wayland, де X11 global-grab (`pynput`) не пра�
   принцип "не парсити недовантажене", що й `watchdog on_closed` на боці парсера
   (docs/implementation-plan.md §3): щойно ArduPilot закриває `.BIN` (кінець польоту чи
   дизарм), файл негайно `rsync`иться на VPS через WireGuard-тунель (`10.10.0.1`,
-  `vps/wireguard/wg0-*.conf.example`);
+  конфіг пишуть `local/setup-wireguard.sh`/`vps/setup-wireguard.sh`);
 - `.tlog` штовхається окремо, періодично (кожні 10с за замовчуванням,
   `TLOG_PUSH_INTERVAL`) — він весь час відкритий протягом сесії MAVProxy, "закриття"
   дочекатись не можна;
