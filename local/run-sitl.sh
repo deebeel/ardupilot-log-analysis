@@ -45,17 +45,10 @@ LOGDIR="$SITL_DIR/ArduPlane/logs"
 TLOG="$LOGDIR/mav.tlog"
 mkdir -p "$LOGDIR"
 
-# Прийняти SSH host key VPS ДО старту push-logs.sh у фоні — інакше перший
-# rsync/ssh застрягає на інтерактивному "are you sure you want to continue
-# connecting?" просто посеред виводу MAVProxy в тому ж терміналі. Best-effort
-# і неблокуючий: BatchMode=yes — якщо ще нема ключа (лише пароль), ssh одразу
-# провалюється замість чекати ввід пароля тут (не валимо запуск польоту, якщо
-# VPS/WireGuard зараз недоступні чи авторизація ще на паролі — push-logs.sh
-# сам ретраїть при кожному новому файлі).
-VPS_WG_HOST="${VPS_WG_HOST:-10.10.0.1}"
-VPS_USER="${VPS_USER:-root}"
-ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=3 \
-  "$VPS_USER@$VPS_WG_HOST" true 2>/dev/null || true
+# SSH host key VPS приймається окремим одноразовим кроком, НЕ тут (інакше
+# перший rsync/ssh у push-logs.sh застряг би на інтерактивному "are you sure
+# you want to continue connecting?" посеред виводу MAVProxy) — перед першим
+# запуском run-sitl.sh виконати вручну: `ssh root@10.10.0.1 exit`.
 
 # Автоматична доставка логів на VPS (RND-254, критерій приймання — не dev-
 # зручність) — окремий фоновий процес (local/push-logs.sh), не частина самого
