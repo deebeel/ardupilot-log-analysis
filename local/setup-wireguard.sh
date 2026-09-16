@@ -9,7 +9,10 @@
 #    Сам генерує ключ тут, ходить по SSH і викликає той самий
 #    vps/setup-wireguard.sh з клона репозиторія на VPS (без дублювання логіки
 #    в цьому файлі), забирає звідти публічний ключ сервера і сам піднімає wg0
-#    тут. Жодного ручного кроку.
+#    тут. Заодно ставить SSH-ключ (~/.ssh/id_ed25519) в authorized_keys на
+#    VPS і приймає host key 10.10.0.1 — щоб push-logs.sh (local/run-sitl.sh)
+#    потім конектився на root@10.10.0.1 без пароля/prompt'ів. Жодного ручного
+#    кроку.
 #
 # 2) Ручний (SSH до VPS нема — інша мережа, фаєрвол, VPS адмінить хтось
 #    інший): той самий тунель усе одно потрібен (критерій приймання тікета),
@@ -20,6 +23,10 @@
 #                  -> друкує публічний ключ сервера
 #      в) тут:    SERVER_WG_PUBKEY=<з б> VPS_ENDPOINT=<ip_або_домен>:51820 ./local/setup-wireguard.sh
 #                  -> тепер піднімає wg0
+#    У цьому режимі немає SSH-доступу для автоматизації push-logs.sh — SSH-
+#    ключ (`~/.ssh/id_ed25519.pub`) для root@10.10.0.1 треба додати в
+#    authorized_keys на VPS вручну (яким завгодно доступом), інакше перший
+#    rsync у push-logs.sh питатиме пароль.
 #
 # VPS_REPO_DIR (лише для автоматичного режиму) — назва теки клона репозиторія
 # в $HOME на VPS; за замовчуванням береться назва локальної теки (той самий
@@ -89,4 +96,27 @@ if ping -c3 -W2 10.10.0.1 >/dev/null 2>&1; then
 else
   echo "ПОМИЛКА: 10.10.0.1 не відповідає — 'sudo wg show wg0' тут і на VPS, ufw 51820/udp." >&2
   exit 1
+fi
+
+# push-logs.sh (local/run-sitl.sh) ходить по SSH на root@10.10.0.1 без нагляду
+# людини (фоновий rsync) — без ключа перший конект або зависав би на паролі
+# (успадкований термінал MAVProxy), або (при ssh-batch) просто мовчки фейлився
+# б назавжди. Лише автоматичний режим: тут уже є SSH-доступ через $VPS_HOST,
+# тож і ключ, і host key 10.10.0.1 можна поставити без ручного кроку.
+# Ідемпотентно: ssh-keygen -N "" не перезаписує існуючий ключ без -y/force,
+# authorized_keys-рядок додається лише якщо його там ще нема.
+if [ -n "${VPS_HOST:-}" ]; then
+  echo "== SSH-ключ для push-logs.sh (root@10.10.0.1, без пароля) =="
+  SSH_KEY_FILE="$HOME/.ssh/id_ed25519"
+  if [ ! -f "$SSH_KEY_FILE" ]; then
+    ssh-keygen -t ed25519 -N "" -f "$SSH_KEY_FILE" -C "push-logs@$(hostname)"
+  fi
+  ssh-keyscan -H 10.10.0.1 >> "$HOME/.ssh/known_hosts" 2>/dev/null
+  SSH_PUBKEY="$(cat "${SSH_KEY_FILE}.pub")"
+  ssh "$VPS_HOST" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF '${SSH_PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || echo '${SSH_PUBKEY}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+  if ssh -o BatchMode=yes -o ConnectTimeout=3 root@10.10.0.1 true 2>/dev/null; then
+    echo "OK: root@10.10.0.1 доступний по SSH без пароля."
+  else
+    echo "ПОПЕРЕДЖЕННЯ: root@10.10.0.1 по SSH без пароля не спрацював — push-logs.sh питатиме пароль." >&2
+  fi
 fi
