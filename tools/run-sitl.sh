@@ -21,6 +21,18 @@ if [ ! -d "$SITL_DIR/ArduPlane" ]; then
   exit 1
 fi
 
+# install-prereqs-ubuntu.sh ставить MAVProxy/pymavlink у venv (`~/venv-ardupilot`,
+# `--system-site-packages`), не системно, і НЕ дописує `source .../activate` в
+# `.bashrc` за замовчуванням (інтерактивний "Make ArduPilot venv default? [N/y]",
+# наш non-interactive прогін лишає N) — тож активуємо тут явно. `sim_vehicle.py`
+# теж не на PATH за замовчуванням — він у Tools/autotest, не встановлюється.
+VENV_ACTIVATE="$HOME/venv-ardupilot/bin/activate"
+if [ -f "$VENV_ACTIVATE" ]; then
+  # shellcheck disable=SC1090
+  source "$VENV_ACTIVATE"
+fi
+export PATH="$SITL_DIR/Tools/autotest:$PATH"
+
 export PYTHONPATH="$REPO_ROOT/tools/keyboard_adapter/src${PYTHONPATH:+:$PYTHONPATH}"
 
 # speech/graph/horizon — штатні MAVProxy-модулі, не наші: живий фідбек під час

@@ -36,9 +36,10 @@ echo "== ArduPilot install-prereqs (важкий, sudo викликає сам �
 # python3-wxgtk4.0 — для MAVProxy-модуля `horizon` (авіагоризонт, run-sitl.sh).
 # Саме apt-пакет (не `pip3 install wxPython`): PyPI не публікує прекомпільовані
 # wheel-и wxPython під linux/aarch64 (наша VM — arm64), тож pip зібрав би його з
-# джерела — довго й ще одна залежність на компілятор поза тим, що вже тягне
-# ArduPilot. apt ставить готовий бінарний пакет у system dist-packages, який
-# MAVProxy (без venv, --user pip) бачить нарівні з --user-пакетами нижче.
+# джерела. Насправді ArduPilot-івський install-prereqs-ubuntu.sh усе одно робить
+# `pip install -U wxpython` і компілює свою копію — apt-пакет тут в основному про
+# venv-ardupilot (нижче) з `--system-site-packages`: якби воно там ще не стояло,
+# system dist-packages підхопився б без окремого зібраного колеса.
 echo "== Додаткові системні пакети (не ArduPilot-специфіка): WireGuard-клієнт, доставка логів, =="
 echo "== GUI-тулкіт для MAVProxy-модуля horizon =="
 sudo apt-get update
@@ -54,15 +55,22 @@ fi
 
 # keyboard-adapter вантажиться MAVProxy-модулем (mavproxy_keyboard_adapter.py, у
 # процесі MAVProxy — CLAUDE.md), не окремим процесом з власним uv-venv. Тому
-# evdev має стояти в ТОМУ Ж Python-оточенні, де install-prereqs-ubuntu.sh щойно
-# поставив саму MAVProxy (--user, без venv) — інакше `--load-module
-# keyboard_adapter` впаде на ImportError. Лише evdev (не pynput — той вимагав би
-# Xorg-сесії, а evdev працює однаково на Xorg і Wayland, тож для єдиного
-# продакшн-шляху сенсу тримати другий бекенд нема). Сам пакет keyboard_adapter/
-# і шим mavproxy_keyboard_adapter.py окремо не встановлюються — run-sitl.sh
-# додає tools/keyboard_adapter/src у PYTHONPATH MAVProxy напряму.
-echo "== evdev в оточення MAVProxy (для keyboard-adapter-модуля) =="
-pip3 install --user --upgrade evdev
+# evdev має стояти в ТОМУ Ж Python-оточенні, де сама MAVProxy — а це
+# `~/venv-ardupilot` (install-prereqs-ubuntu.sh: `python3 -m venv
+# --system-site-packages`), не системний/`--user` pip3. Живцем перевірено: на
+# Ubuntu 24.04 системного pip3 навіть немає (PEP 668), лише venv-івський. Лише
+# evdev (не pynput — той вимагав би Xorg-сесії, а evdev працює однаково на Xorg
+# і Wayland, тож для єдиного продакшн-шляху сенсу тримати другий бекенд нема).
+# Сам пакет keyboard_adapter/ і шим mavproxy_keyboard_adapter.py окремо не
+# встановлюються — run-sitl.sh додає tools/keyboard_adapter/src у PYTHONPATH.
+echo "== evdev у venv-ardupilot (те саме Python-оточення, де сам MAVProxy) =="
+VENV_PIP="$HOME/venv-ardupilot/bin/pip3"
+if [ -x "$VENV_PIP" ]; then
+  "$VENV_PIP" install --upgrade evdev
+else
+  echo "$VENV_PIP не знайдено — install-prereqs-ubuntu.sh не створив venv-ardupilot? Ставлю --user як запасний варіант." >&2
+  pip3 install --user --upgrade evdev
+fi
 
 cat <<EOF
 
