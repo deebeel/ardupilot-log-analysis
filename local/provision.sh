@@ -11,16 +11,12 @@
 # credentials (`sudo -v`) на самому початку, щоб він і решта кроків нижче не
 # перепитували пароль кожен окремо.
 #
-# WireGuard-клієнт налаштовується автоматично настільки, наскільки це можливо
-# без ручного кроку: якщо передано SERVER_WG_PUBKEY (+опційно VPS_ENDPOINT) —
-# скрипт сам згенерує клієнтський ключ (якщо ще нема) і підніме `wg0`, без
-# ручного редагування wg0.conf. Обмін самими публічними ключами між двома
-# окремими машинами — той єдиний крок, який фізично не можна автоматизувати
-# одним скриптом (немає спільного каналу): SITL-хост має власний, деплой на VPS
-# запускається окремо (vps/provision.sh) з ключем звідси.
+# WireGuard тут НЕ налаштовується — окремий крок, `local/setup-wireguard.sh`
+# (дивись цей файл): цей скрипт лише ставить `wireguard-tools` як пакет,
+# піднімати сам тунель — робота іншого скрипта.
 #
-# Ідемпотентний: повторний прогін безпечний (клон/checkout/apt install/групу/
-# wg0.conf перевіряють стан перед дією).
+# Ідемпотентний: повторний прогін безпечний (клон/checkout/apt install/групу
+# перевіряють стан перед дією).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -78,52 +74,10 @@ else
   pip3 install --user --upgrade evdev
 fi
 
-echo "== WireGuard-клієнт: ключі (якщо ще нема) =="
-WG_PRIVATE_KEY_FILE="$HOME/.wg-privatekey"
-WG_PUBLIC_KEY_FILE="$HOME/.wg-publickey"
-if [ ! -f "$WG_PRIVATE_KEY_FILE" ]; then
-  wg genkey | tee "$WG_PRIVATE_KEY_FILE" | wg pubkey > "$WG_PUBLIC_KEY_FILE"
-  chmod 600 "$WG_PRIVATE_KEY_FILE"
-  echo "Згенеровано новий ключ клієнта."
-else
-  echo "Ключ клієнта вже є (повторний прогін) — лишаю як є."
-fi
-echo "Публічний ключ клієнта (передати на VPS-провіжн, vps/provision.sh):"
-cat "$WG_PUBLIC_KEY_FILE"
-
-# SERVER_WG_PUBKEY — публічний ключ, який виводить vps/provision.sh на VPS.
-# Без нього неможливо скласти [Peer] — тож без цієї змінної просто виводимо
-# свій ключ вище і пропускаємо власне піднімання інтерфейсу, не падаємо: цей
-# скрипт мусить лишатись прогонним і тоді, коли VPS-ключа ще нема.
-if [ -n "${SERVER_WG_PUBKEY:-}" ]; then
-  VPS_ENDPOINT="${VPS_ENDPOINT:?потрібен VPS_ENDPOINT=<ip_або_домен_vps>:51820 разом із SERVER_WG_PUBKEY}"
-  echo "== WireGuard-клієнт: wg0.conf (SERVER_WG_PUBKEY передано) =="
-  sudo mkdir -p /etc/wireguard
-  sudo tee /etc/wireguard/wg0.conf >/dev/null <<EOF
-[Interface]
-Address = 10.10.0.2/24
-PrivateKey = $(cat "$WG_PRIVATE_KEY_FILE")
-
-[Peer]
-PublicKey = ${SERVER_WG_PUBKEY}
-Endpoint = ${VPS_ENDPOINT}
-AllowedIPs = 10.10.0.0/24
-PersistentKeepalive = 25
-EOF
-  sudo chmod 600 /etc/wireguard/wg0.conf
-  sudo systemctl enable wg-quick@wg0
-  # restart, не start — той самий мотив, що на VPS: повторний прогін з іншим
-  # SERVER_WG_PUBKEY/VPS_ENDPOINT (переліт VPS) теж підхопиться.
-  sudo systemctl restart wg-quick@wg0
-  sudo wg show wg0
-else
-  echo "SERVER_WG_PUBKEY не передано — інтерфейс wg0 НЕ піднімаю. Прогнати ще раз:"
-  echo "  SERVER_WG_PUBKEY=<з vps/provision.sh> VPS_ENDPOINT=<ip_або_домен>:51820 ./local/provision.sh"
-fi
-
 cat <<EOF
 
 Готово. .sitl/ на тезі ${ARDUPILOT_TAG}, системні залежності встановлені.
 Якщо групу input щойно додано — релогін, тоді:
+  VPS_HOST=root@<vps> ./local/setup-wireguard.sh   # піднімає тунель на обох боках
   ./local/run-sitl.sh
 EOF

@@ -124,13 +124,15 @@ Ubuntu 22.04+ типово Wayland, де X11 global-grab (`pynput`) не пра�
 - невдалий `rsync` (WireGuard/VPS ще не піднятий) лише пишеться в лог, не валить
   спостереження — наступний закритий `.BIN` чи тик tlog-пушера спробує знову.
 
-Змінні (усі опційні, дефолти відповідають `vps/provision.sh`): `VPS_WG_HOST`
-(`10.10.0.1`), `VPS_USER` (`root`), `VPS_INBOX` (`/srv/app/data/inbox`).
+Змінні (усі опційні, дефолти відповідають адресації, яку прописує
+`local/setup-wireguard.sh`): `VPS_WG_HOST` (`10.10.0.1`), `VPS_USER` (`root`),
+`VPS_INBOX` (`/srv/app/data/inbox`).
 
 **[не перевірено на реальному VPS]** — перевірено лише механіка (`inotifywait`/`rsync`
 викликаються правильно, коректний cleanup при `Ctrl+C`, без процесів-сиріток) із
 фейковими `inotifywait`/`rsync`; живий прогін через реальний WireGuard-тунель до
-реального VPS ще належить зробити (`vps/provision.sh` на VPS, потім живий політ).
+реального VPS ще належить зробити (`vps/provision.sh` на VPS, тоді
+`local/setup-wireguard.sh`, потім живий політ).
 
 ## macOS (README.mac.md, не оцінюється)
 
