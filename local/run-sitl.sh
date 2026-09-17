@@ -17,6 +17,13 @@
 # FBWA + armed, README.md крок 4).
 # Без sudo, повторюваний — викликати перед кожним польотом, після одноразового
 # ./local/provision.sh.
+#
+# FlightGear (опційно, лише для ефектнішого запису — CLAUDE.md, MAVProxy сам
+# закриває роль GCS+візуалізації): якщо задано FLIGHTGEAR_HOST, SITL сам шле
+# FGNetFDM (--enable-fgview -A "--fg=$FLIGHTGEAR_HOST") на порт 5503 (дефолт
+# ArduPilot) тому хосту — там має вже бути піднятий FlightGear, який приймає
+# --native-fdm=socket,in,10,,5503,udp (local/run-flightgear-mac.sh на Mac).
+# Без FLIGHTGEAR_HOST — прапорець не додається, поведінка не змінюється.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,8 +64,14 @@ mkdir -p "$LOGDIR"
 PUSH_LOGS_PID=$!
 trap 'kill "$PUSH_LOGS_PID" 2>/dev/null || true' EXIT
 
+SIM_VEHICLE_ARGS=(-v ArduPlane --frame plane -M plane --console --map)
+if [ -n "${FLIGHTGEAR_HOST:-}" ]; then
+  echo "== FlightGear: FDM-вивід на $FLIGHTGEAR_HOST:5503 (--enable-fgview) =="
+  SIM_VEHICLE_ARGS+=(--enable-fgview -A "--fg=$FLIGHTGEAR_HOST")
+fi
+
 echo "== SITL ArduPlane + MAVProxy (keyboard_adapter + horizon модулями) =="
 echo "   .BIN та .tlog: $LOGDIR (push-logs.sh у фоні, pid $PUSH_LOGS_PID)"
 cd "$SITL_DIR/ArduPlane"
-sim_vehicle.py -v ArduPlane --frame plane -M plane --console --map \
+sim_vehicle.py "${SIM_VEHICLE_ARGS[@]}" \
   --mavproxy-args "--load-module keyboard_adapter --load-module horizon --logfile $TLOG"
