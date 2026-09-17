@@ -10,9 +10,11 @@
 # ходити в інший бік): ставить лише пакет `wireguard-tools`, сам тунель —
 # після цього провіжну.
 #
-# Без сертифікатів: HTTPS/ACME/Let's Encrypt свідомо не піднімаються — Caddy тут
-# лише reverse-proxy на звичайному HTTP (80). Сертифікат — коли й якщо
-# знадобиться пізніше, окреме питання, не частина цього провіжну.
+# Сертифікат: реального (домен+SSL від замовника) ще нема, тож генеруємо
+# self-signed у /srv/app/certs/{server.crt,server.key} — лише якщо там ще
+# нічого немає. Коли замовник дасть реальний сертифікат — покласти файли з
+# тими самими іменами в ту саму теку (перезаписати self-signed), Caddyfile і
+# цей скрипт міняти не треба: цей блок просто нічого не згенерує повторно.
 #
 # Образи `parser`/`web` збираються ТУТ ЖЕ, під час провіжну (docker compose
 # build прямо з клона репозиторія на VPS) — окремого кроку "зібрати десь і
@@ -45,11 +47,12 @@ else
   echo "docker вже встановлено: $(docker --version)"
 fi
 
-apt-get install -y wireguard-tools ufw
+apt-get install -y wireguard-tools ufw openssl
 
-echo "== ufw: 22 (SSH), 80 (HTTP, без сертифікатів), 51820/udp (WireGuard) =="
+echo "== ufw: 22 (SSH), 80+443 (HTTP/HTTPS), 51820/udp (WireGuard) =="
 ufw allow 22/tcp
 ufw allow 80/tcp
+ufw allow 443/tcp
 ufw allow 51820/udp
 ufw --force enable
 
@@ -57,11 +60,30 @@ echo "== /srv/app/data: теки під bind-mount (parser пише, web чит�
 mkdir -p /srv/app/data/inbox /srv/app/data/results
 chown -R 1000:1000 /srv/app/data
 
+echo "== TLS: self-signed сертифікат, якщо реального (від замовника) ще нема =="
+CERT_DIR=/srv/app/certs
+mkdir -p "$CERT_DIR"
+if [ -f "$CERT_DIR/server.crt" ] && [ -f "$CERT_DIR/server.key" ]; then
+  echo "Сертифікат уже є в $CERT_DIR — не чіпаю (реальний від замовника чи раніше згенерований self-signed)."
+else
+  PUBLIC_HOST="${VPS_PUBLIC_HOST:-$(curl -fsS https://api.ipify.org 2>/dev/null || hostname -f)}"
+  if [[ "$PUBLIC_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    SAN="IP:${PUBLIC_HOST}"
+  else
+    SAN="DNS:${PUBLIC_HOST}"
+  fi
+  openssl req -x509 -nodes -days 825 -newkey rsa:2048 \
+    -keyout "$CERT_DIR/server.key" -out "$CERT_DIR/server.crt" \
+    -subj "/CN=${PUBLIC_HOST}" -addext "subjectAltName=${SAN}"
+  echo "Згенеровано self-signed для ${PUBLIC_HOST} (перевизначити хост: VPS_PUBLIC_HOST=<ip_або_домен>)."
+fi
+chown -R 1000:1000 "$CERT_DIR"
+
 echo "== docker compose: збірка образів (тут, на VPS — той самий amd64) + up -d =="
 COMPOSE_DIR="$REPO_ROOT/vps/compose"
-DATA_DIR=/srv/app/data docker compose --project-directory "$COMPOSE_DIR" \
+DATA_DIR=/srv/app/data CERT_DIR=/srv/app/certs docker compose --project-directory "$COMPOSE_DIR" \
   -f "$COMPOSE_DIR/docker-compose.yml" build
-DATA_DIR=/srv/app/data docker compose --project-directory "$COMPOSE_DIR" \
+DATA_DIR=/srv/app/data CERT_DIR=/srv/app/certs docker compose --project-directory "$COMPOSE_DIR" \
   -f "$COMPOSE_DIR/docker-compose.yml" up -d
 
 echo "== Health-check (з ретраями — Node/Caddy холодний старт триває кілька секунд) =="
@@ -80,11 +102,21 @@ else
   exit 1
 fi
 
+if curl -sfk -o /dev/null https://localhost/; then
+  echo "OK: https://localhost/ відповідає (self-signed чи реальний сертифікат — браузер сам покаже, який саме)."
+else
+  echo "ПОПЕРЕДЖЕННЯ: https://localhost/ не відповідає — 'docker compose logs caddy' у $COMPOSE_DIR." >&2
+fi
+
 cat <<'EOF'
 
-Готово. parser+web+caddy зібрані й запущені прямо тут. WireGuard ще НЕ піднятий —
-з SITL-хоста (там є SSH-доступ сюди):
-  VPS_HOST=root@<ця_машина> ./local/setup-wireguard.sh
+Готово. parser+web+caddy зібрані й запущені прямо тут. HTTPS (:443) працює з
+self-signed сертифікатом, доки замовник не дасть реальний (покласти
+server.crt/server.key в /srv/app/certs, повторно прогнати цей скрипт).
+WireGuard ще НЕ піднятий — обмін ключами ручний, SITL-хост на публічну
+адресу цього VPS по SSH не ходить (README.md, крок 3):
+  CLIENT_WG_PUBKEY=<з local/setup-wireguard.sh> CLIENT_SSH_PUBKEY=<звідти ж> \
+    ./vps/setup-wireguard.sh
 
 Повторний прогін цього ж скрипта (напр. після зміни коду — git pull) сам
 пересобере образи й перезапустить контейнери.

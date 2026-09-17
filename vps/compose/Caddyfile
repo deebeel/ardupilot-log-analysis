@@ -1,4 +1,14 @@
-# Без сертифікатів: звичайний HTTP reverse-proxy, ніякого ACME/self-signed.
+# :80 лишається — локальні перевірки (health-check у vps/provision.sh, curl
+# з самого VPS) і сумісність з тим, як стенд працював до сертифіката.
+# :443 з /certs/server.crt+server.key — self-signed за замовчуванням
+# (vps/provision.sh генерує, якщо там ще нічого нема), реальний сертифікат
+# замовника (той самий шлях, ті самі імена файлів) підміняє його без зміни
+# цього файлу.
 :80 {
+	reverse_proxy web:4321
+}
+
+:443 {
+	tls /certs/server.crt /certs/server.key
 	reverse_proxy web:4321
 }
