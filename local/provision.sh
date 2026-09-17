@@ -86,11 +86,16 @@ else
   pip3 install --user --upgrade evdev
 fi
 
+echo "== Перевірка: чи застосувалась група input (без цього evdev не працюватиме) =="
+if id -nG "$USER" | tr ' ' '\n' | grep -qx input; then
+  echo "OK: $USER у групі input — relogin (якщо був потрібен) уже застосувався."
+else
+  echo "УВАГА: $USER ще НЕ в групі input у поточній сесії — вийти й зайти знову (або 'newgrp input'), інакше keyboard_adapter впаде на правах доступу до /dev/input." >&2
+fi
+
 cat <<EOF
 
 Готово. .sitl/ на тезі ${ARDUPILOT_TAG}, системні залежності встановлені.
-Якщо групу input щойно додано — релогін, тоді:
-  VPS_HOST=root@<vps> ./local/setup-wireguard.sh   # авто, якщо є SSH до VPS
-  ./local/setup-wireguard.sh                        # ручний режим — дивись сам файл
-  ./local/run-sitl.sh
+Наступний крок — WireGuard-тунель (README.md, крок 3):
+  ./local/setup-wireguard.sh
 EOF
