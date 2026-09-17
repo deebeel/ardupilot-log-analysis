@@ -32,7 +32,6 @@ vps/                        # Мережа B (VPS)
 │   └── web/                       # звіт (Astro/TS)
 └── compose/                      # docker-compose.yml, Caddyfile, .env.example
 docs/
-├── implementation-plan.md       # детальний план реалізації (сервіси, компроміси)
 ├── host-prerequisites.md        # чернетка, з якої зібрано розділ SITL нижче
 └── scoring-algorithm.md         # алгоритм вердикту (if/else за порогами)
 ```

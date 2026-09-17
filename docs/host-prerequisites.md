@@ -116,8 +116,8 @@ Ubuntu 22.04+ типово Wayland, де X11 global-grab (`pynput`) не пра�
 кроці 2 (`local/provision.sh`). Сам скрипт `run-sitl.sh` запускає у фоні:
 
 - стежить за `.sitl/ArduPlane/logs/` через `inotifywait -e close_write` — той самий
-  принцип "не парсити недовантажене", що й `watchdog on_closed` на боці парсера
-  (docs/implementation-plan.md §3): щойно ArduPilot закриває `.BIN` (кінець польоту чи
+  принцип "не парсити недовантажене", що й watcher на боці парсера
+  (`vps/services/parser/src/parser/watcher.py`): щойно ArduPilot закриває `.BIN` (кінець польоту чи
   дизарм), файл негайно `rsync`иться на VPS через WireGuard-тунель (`10.10.0.1`,
   конфіг пишуть `local/setup-wireguard.sh`/`vps/setup-wireguard.sh`);
 - `.tlog` штовхається окремо, періодично (кожні 10с за замовчуванням,

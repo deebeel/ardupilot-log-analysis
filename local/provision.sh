@@ -54,8 +54,9 @@ echo "== ArduPilot install-prereqs (важкий, sudo викликає сам �
 
 echo "== Додаткові системні пакети (не ArduPilot-специфіка): WireGuard-клієнт, доставка логів =="
 sudo apt-get update
-# inotify-tools — local/push-logs.sh стежить за закриттям .BIN (watchdog on_closed,
-# той самий принцип, що й на боці парсера, docs/implementation-plan.md §3), щоб
+# inotify-tools — local/push-logs.sh стежить за закриттям .BIN (той самий принцип,
+# що й watcher на боці парсера: реагувати на "закрито", не на частково записаний
+# файл), щоб
 # штовхати на VPS лише завершені файли, не частково записані.
 sudo apt-get install -y wireguard-tools rsync openssh-client git-lfs inotify-tools
 
