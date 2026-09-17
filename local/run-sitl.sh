@@ -14,7 +14,7 @@
 # Wayland, потребує групи `input` — ./local/provision.sh); KEYBOARD_DEVICE=
 # /dev/input/eventN, якщо автовизначення обрало не той пристрій.
 # keyboard_adapter НЕ керує сам по собі — треба `kb on` у консолі MAV> (окрім
-# FBWA + armed, docs/host-prerequisites.md крок 3).
+# FBWA + armed, README.md крок 4).
 # Без sudo, повторюваний — викликати перед кожним польотом, після одноразового
 # ./local/provision.sh.
 set -euo pipefail
