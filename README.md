@@ -54,8 +54,8 @@ WireGuard між ними піднімає окремий `local/setup-wireguard
 
 ```bash
 sudo apt-get install -y git   # якщо git ще нема
-git clone <URL_РЕПОЗИТОРІЮ>
-cd <ТЕКА_РЕПОЗИТОРІЮ>
+git clone https://github.com/deebeel/ardupilot-log-analysis.git
+cd ardupilot-log-analysis
 ```
 
 ### 1.1. Одноразовий провіжн
@@ -91,8 +91,8 @@ groups | tr ' ' '\n' | grep -x input && echo "OK" || echo "потрібен ре
 ```bash
 ssh root@<vps>
 apt-get install -y git   # якщо git ще нема
-git clone <URL_РЕПОЗИТОРІЮ>
-cd <ТЕКА_РЕПОЗИТОРІЮ>
+git clone https://github.com/deebeel/ardupilot-log-analysis.git
+cd ardupilot-log-analysis
 ```
 
 ### 2.1. Одноразовий провіжн
@@ -174,14 +174,14 @@ SERVER_WG_PUBKEY=<ключ_з_2> VPS_ENDPOINT=<ip_або_домен_vps>:51820 .
 терміналами:
 
 ```bash
-CLIENT_OUT="$(ssh sitl-host 'cd <ТЕКА_РЕПОЗИТОРІЮ> && ./local/setup-wireguard.sh')"
+CLIENT_OUT="$(ssh sitl-host 'cd ardupilot-log-analysis && ./local/setup-wireguard.sh')"
 CLIENT_WG_PUBKEY="$(echo "$CLIENT_OUT" | sed -n 's/^Публічний ключ клієнта (WireGuard): //p')"
 CLIENT_SSH_PUBKEY="$(echo "$CLIENT_OUT" | sed -n 's/^Публічний SSH-ключ push-logs.sh: //p')"
 
 SERVER_WG_PUBKEY="$(ssh root@vps-host \
-  "cd <ТЕКА_РЕПОЗИТОРІЮ> && CLIENT_WG_PUBKEY='$CLIENT_WG_PUBKEY' CLIENT_SSH_PUBKEY='$CLIENT_SSH_PUBKEY' ./vps/setup-wireguard.sh")"
+  "cd ardupilot-log-analysis && CLIENT_WG_PUBKEY='$CLIENT_WG_PUBKEY' CLIENT_SSH_PUBKEY='$CLIENT_SSH_PUBKEY' ./vps/setup-wireguard.sh")"
 
-ssh sitl-host "cd <ТЕКА_РЕПОЗИТОРІЮ> && SERVER_WG_PUBKEY='$SERVER_WG_PUBKEY' VPS_ENDPOINT=<ip_або_домен_vps>:51820 ./local/setup-wireguard.sh"
+ssh sitl-host "cd ardupilot-log-analysis && SERVER_WG_PUBKEY='$SERVER_WG_PUBKEY' VPS_ENDPOINT=<ip_або_домен_vps>:51820 ./local/setup-wireguard.sh"
 ```
 
 Обидва способи ідемпотентні (повторний прогін перезапише конфіги обох боків і перепідніме
