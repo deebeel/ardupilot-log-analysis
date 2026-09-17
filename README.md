@@ -271,6 +271,36 @@ ssh sitl-host "cd ardupilot-log-analysis && SERVER_WG_PUBKEY='$SERVER_WG_PUBKEY'
 Список пристроїв: `ls /dev/input/by-id/`; вказати правильний вручну:
 `KEYBOARD_DEVICE=/dev/input/eventN ./local/run-sitl.sh`.
 
+### Опційно: 3D-візуалізація через FlightGear (з Mac)
+
+Не обов'язково для здачі — карта й авіагоризонт (вище) уже закривають роль
+GCS+візуалізації. Якщо хочеться ефектнішого запису польоту, SITL-хост може
+паралельно слати дані про політ на FlightGear, запущений на Mac (тому ж, з
+якого дивишся на все інше по WireGuard/SSH).
+
+Одноразово перенести на Mac теку моделі літака, що йде в комплекті з
+ArduPilot (заміни `<SITL_HOST>` на адресу SITL-хоста):
+
+```bash
+scp -r <SITL_HOST>:~/ardupilot-log-analysis/.sitl/Tools/autotest/aircraft \
+  ~/.fg-aircraft-ardupilot
+```
+
+На Mac (потрібен встановлений [FlightGear](https://www.flightgear.org/)):
+
+```bash
+./local/run-flightgear-mac.sh
+```
+
+На SITL-хості — та сама команда, що й у кроці 4, але з IP цього Mac у
+локальній мережі:
+
+```bash
+FLIGHTGEAR_HOST=<IP_Mac_у_локальній_мережі> ./local/run-sitl.sh
+```
+
+Без `FLIGHTGEAR_HOST` поведінка `run-sitl.sh` не змінюється.
+
 ---
 
 ## Крок 5. Політ і звіт
