@@ -16,8 +16,8 @@ VM_ARDUPILOT_DIR ?= ~/ardupilot_log_analysis/.sitl
 
 # Витягує свіжі .BIN (DataFlash) і .tlog з Ubuntu VM (UTM) на хост-машину,
 # у watched-теку парсера. Це dev-зручність для локальної перевірки пайплайна
-# з реального SITL-польоту — НЕ той транспорт, що піде на VPS (там WireGuard +
-# rsync/scp за планом, docs/implementation-plan.md §3); тут звичайний SSH у
+# з реального SITL-польоту — НЕ той транспорт, що йде на VPS (там WireGuard +
+# rsync через local/push-logs.sh, README.md крок 5); тут звичайний SSH у
 # межах локальної мережі UTM. Обидва файли — в одній теці (run-sitl.sh's
 # --logfile ставить .tlog поряд із .BIN, local/run-sitl.sh), тож один rsync.
 fetch-logs:
